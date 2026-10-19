@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function profileValid(d) {
+      return d.keys().hasAll(['username','displayName','institution','isPublic','preferences','createdAt','updatedAt'])
+        && d.keys().hasOnly(['username','displayName','institution','isPublic','preferences','createdAt','updatedAt'])
+        && d.username is string && (d.username == '' || d.username.matches('^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$'))
+        && d.displayName is string && d.displayName.size() <= 100
+        && d.institution is string && d.institution.size() <= 150
+        && d.isPublic is bool && d.preferences is map
+        && d.preferences.keys().hasAll(['theme']) && d.preferences.keys().hasOnly(['theme'])
+        && d.preferences.theme in ['dark','light','red']
+        && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    function siteValid(d) {
+      return d.keys().hasAll(['name','latitude','longitude','radiusKm','minObservationAltitude','createdAt','updatedAt'])
+        && d.keys().hasOnly(['name','latitude','longitude','radiusKm','minObservationAltitude','createdAt','updatedAt'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && d.latitude is number && d.latitude >= -90 && d.latitude <= 90
+        && d.longitude is number && d.longitude >= -180 && d.longitude <= 180
+        && d.radiusKm is number && d.radiusKm > 0 && d.radiusKm <= 5000
+        && d.minObservationAltitude is number && d.minObservationAltitude >= 0 && d.minObservationAltitude <= 90
+        && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    function taggedValid(d) {
+      return d.keys().hasAll(['eventId','siteId','status','eventSnapshot','siteNameSnapshot','createdAt','updatedAt'])
+        && d.keys().hasOnly(['eventId','siteId','status','eventSnapshot','siteNameSnapshot','createdAt','updatedAt'])
+        && d.eventId is string && d.eventId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && d.siteId is string && d.siteId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && d.status in ['interested','planned','observed']
+        && d.eventSnapshot is map
+        && d.eventSnapshot.keys().hasAll(['name','dateTime','gaiaSourceId'])
+        && d.eventSnapshot.keys().hasOnly(['name','dateTime','gaiaSourceId'])
+        && d.eventSnapshot.name is string && d.eventSnapshot.name.size() > 0 && d.eventSnapshot.name.size() <= 200
+        && d.eventSnapshot.dateTime is timestamp
+        && (d.eventSnapshot.gaiaSourceId == null || (d.eventSnapshot.gaiaSourceId is string && d.eventSnapshot.gaiaSourceId.matches('^[0-9]{1,30}$')))
+        && d.siteNameSnapshot is string && d.siteNameSnapshot.size() > 0 && d.siteNameSnapshot.size() <= 100
+        && d.createdAt is timestamp && d.updatedAt == request.time;
+    }
+    match /users/{uid} {
+      allow get: if owner(uid);
+      // Username changes must pass the authenticated server transaction.
+      allow create: if owner(uid) && profileValid(request.resource.data)
+        && request.resource.data.username == '' && request.resource.data.isPublic == false
+        && request.resource.data.createdAt == request.time;
+      allow update: if owner(uid) && profileValid(request.resource.data)
+        && request.resource.data.username == resource.data.username
+        && request.resource.data.createdAt == resource.data.createdAt;
+      match /sites/{siteId} {
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && siteValid(request.resource.data) && request.resource.data.createdAt == request.time;
+        allow update: if owner(uid) && siteValid(request.resource.data) && request.resource.data.createdAt == resource.data.createdAt;
+      }
+      match /tagged/{taggedId} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && taggedValid(request.resource.data)
+          && taggedId == request.resource.data.eventId + '~' + request.resource.data.siteId
+          && get(/databases/$(database)/documents/users/$(uid)/sites/$(request.resource.data.siteId)).data.name == request.resource.data.siteNameSnapshot
+          && ((!exists(/databases/$(database)/documents/users/$(uid)/tagged/$(taggedId)) && request.resource.data.createdAt == request.time)
+            || (exists(/databases/$(database)/documents/users/$(uid)/tagged/$(taggedId)) && request.resource.data.createdAt == resource.data.createdAt));
+      }
+    }
+    // predictionCache and every unlisted collection are server-only (Admin SDK).
+    match /predictionCache/{eventId} { allow read, write: if false; }
+  }
+}
