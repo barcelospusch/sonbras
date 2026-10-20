@@ -1,1 +1,1 @@
-{"indexes":[],"fieldOverrides":[{"collectionGroup":"predictionCache","fieldPath":"data","indexes":[]},{"collectionGroup":"predictionCache","fieldPath":"expiresAt","ttl":true,"indexes":[]}]}
+{ "indexes": [], "fieldOverrides": [] }

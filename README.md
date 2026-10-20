@@ -1,147 +1,167 @@
 # Sonbras
 
-Plataforma de planejamento de ocultações estelares em Next.js App Router, TypeScript, Firebase Auth e Firestore, com Phosphor duotone e `@dimitri.pusch/occjs` 0.2.0.
+Aplicativo para planejar observações de ocultações estelares, desenvolvido em JavaScript com Next.js App Router, React, Firebase Auth, Cloud Firestore e occjs 0.3.1.
 
-Consulte a [arquitetura do projeto](docs/architecture.md) para responsabilidades das camadas, fluxos de dados e convenções de desenvolvimento.
+## Executar
 
-## Executar e configurar
-
-Requer Node.js 22+.
+Requer Node.js 22 ou superior.
 
 ```powershell
 npm install
 Copy-Item .env.example .env.local
-# Preencha a configuração Firebase e as credenciais do servidor.
+# Preencha as variáveis NEXT_PUBLIC_FIREBASE_*.
 npm run dev
 ```
 
-Abra http://localhost:3000. As fontes Manrope e DM Sans são servidas localmente.
+Abra [localhost:3000](http://localhost:3000). Habilite os provedores Google e E-mail/Senha no Firebase Authentication e autorize os domínios usados pelo aplicativo.
 
-No Firebase Authentication, habilite Google e E-mail/Senha e autorize localhost e o domínio de produção. O e-mail fica no Firebase Auth, sem cópia pública no Firestore. A alteração de e-mail usa confirmação no novo endereço e pode exigir reautenticação.
+O aplicativo não exige Firebase Admin nem uma conta de serviço. As credenciais públicas identificam o projeto; as regras do Firestore controlam o acesso aos dados. O Admin SDK fica somente nas dependências de desenvolvimento, para o script opcional de migração.
 
-O navegador utiliza somente as variáveis `NEXT_PUBLIC_FIREBASE_*`. O servidor utiliza o SDK Admin para consultar perfis por username e ler/escrever o cache. Configure uma das opções:
+## Organização do código
 
-- `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY`, somente no ambiente do servidor. A chave aceita quebras de linha reais ou escapadas como `\n`.
-- `GOOGLE_APPLICATION_CREDENTIALS` apontando para uma conta de serviço fora do repositório.
-- `FIREBASE_USE_ADC=true` quando Application Default Credentials já estiver disponível. Ambientes Google Cloud reconhecidos também utilizam ADC.
+- `src/app`: páginas e rotas HTTP. Os arquivos `.jsx` contêm a interface; as rotas `.js` consultam o LIneA pelo servidor.
+- `src/components`: componentes compartilhados e estado da sessão.
+- `src/lib/firebase.js`: inicialização do Firebase e referências das coleções e documentos.
+- `src/lib/repositories`: operações de perfil, sítios, marcações, leitura pública e assinaturas do Firestore.
+- `src/lib/*.mjs`: conversões, filtros e cálculos reutilizados pela aplicação, testes e scripts. `format.js` reúne a formatação de números e datas.
+- `src/lib/server`: busca de predições e cache em memória.
+- `scripts`: auditoria do occjs e migração manual do banco.
+- `tests`: testes de lógica e de segurança do Firestore.
 
-Nunca use `NEXT_PUBLIC_` para credenciais Admin. Sem configuração Admin, o serviço de perfis retorna 503 com uma mensagem de configuração; as consultas científicas continuam disponíveis diretamente pelo occjs, sem cache persistente. Com Admin configurado e permissões de Firestore e Firebase Auth, os perfis e o cache são habilitados. Reinicie o servidor após alterar as variáveis.
+Os módulos usam ESM. O alias `@/*` aponta para `src/*` e está configurado em `jsconfig.json`.
 
-## Estrutura do banco
+## Páginas
+
+| Endereço            | Função                                              |
+| ------------------- | --------------------------------------------------- |
+| `/`                 | Listar, cadastrar, editar e excluir sítios da conta |
+| `/sites/{siteId}`   | Buscar predições nas condições do sítio             |
+| `/events/{eventId}` | Consultar detalhes e marcar um evento               |
+| `/account`          | Editar perfil, e-mail, visibilidade e tema          |
+| `/users/{username}` | Ver perfil público ou a própria prévia privada      |
+| `/login`            | Entrar ou criar uma conta                           |
+| `/guide`            | Consultar o guia de observação                      |
+| `/about`            | Conhecer a plataforma                               |
+
+O parâmetro da pasta `users/[uid]` representa o nome de usuário na URL, não o UID do Firebase. As pastas das páginas foram preservadas.
+
+## Firebase e privacidade
+
+O navegador usa Firebase Auth e Firestore Web SDK. O e-mail também é armazenado no documento privado do usuário e sincronizado com o Auth. Sua alteração exige confirmação no novo endereço e pode exigir reautenticação.
 
 ```text
 users/{uid}
-  username: string
-  displayName: string
-  institution: string
+  displayName, email, institution, username: string
   isPublic: boolean
-  preferences:
-    theme: dark | light | red
-  createdAt: Timestamp
+  theme: dark | light | red
   updatedAt: Timestamp
-
   sites/{siteId}
+    latitude, longitude, minObservationAltitude, radiusKm: number
     name: string
-    latitude: number
-    longitude: number
-    radiusKm: number
-    minObservationAltitude: number
-    createdAt: Timestamp
+    updatedAt: Timestamp
+  observations/{obsId}
+    dateTime: Timestamp
+    eventId, eventName, siteId, siteName: string
+    tag: interested | planned | observed
     updatedAt: Timestamp
 
-  tagged/{eventId}~{siteId}
-    eventId: string
-    siteId: string
-    status: interested | planned | observed
-    eventSnapshot:
-      name: string
-      dateTime: Timestamp
-      gaiaSourceId: string | null
-    siteNameSnapshot: string
-    createdAt: Timestamp
-    updatedAt: Timestamp
+publicUsers/{uid}
+  displayName, institution, username: string
+  isPublic: boolean
+  observations/{opaqueId}
+    dateTime: Timestamp
+    eventId, eventName, siteName, tag: string
 
-predictionCache/{eventId}
-  data:
-    event: objeto retornado pelo occjs (quando consultado)
-    paths: trajetórias retornadas pelo occjs (quando consultadas)
-  fetchedAt: Timestamp
-  expiresAt: Timestamp
+usernames/{username}
+  uid: string
 ```
 
-Não há coleções auxiliares de perfis públicos ou de reserva de usernames. Os snapshots preservam o resumo do evento e o nome do sítio no momento da marcação. Gaia IDs são texto; um ID ausente ou já arredondado em um documento legado fica `null`, em vez de receber dígitos inventados.
+Os documentos em `users` e suas subcoleções são privados. As cópias em `publicUsers` excluem e-mail, tema, coordenadas e identificador do sítio. O UID identifica o perfil público; os IDs das marcações públicas são hashes. Desativar `isPublic` ou mudar o nome de usuário bloqueia o acesso público antigo pelas regras, mesmo antes da próxima sincronização.
 
-Sítios mantêm o caminho e os campos anteriores. Latitude: −90 a 90; longitude: −180 a 180; raio: maior que zero e até 5000 km; altitude mínima: 0 a 90 graus acima do horizonte. Altitude não é a elevação do terreno.
+O nome de usuário tem de 3 a 30 caracteres: letras minúsculas, números, hífen ou sublinhado, com início e fim alfanuméricos. Perfil e reserva do nome são gravados em uma transação. Ao trocar o nome, a reserva anterior é liberada.
 
-## Perfil, username e privacidade
+Ao entrar na conta, o aplicativo sincroniza as cópias públicas. Gravações posteriores de marcações atualizam os documentos privado e público no mesmo lote. Cópias que já estão atualizadas não são regravadas.
 
-- `/account` permite alterar nome, instituição, username, publicação do perfil, e-mail e tema. O slider usa sol, lua e alien; o tema é persistido em `preferences.theme` e sincronizado pelo Firestore.
-- `/users/{username}` consulta `/api/users/{username}`. A rota Admin busca `users.where('username', '==', username)`, verifica `isPublic` e devolve somente nome, username, instituição e resumos das marcações. O proprietário autenticado também pode visualizar a prévia privada.
-- O perfil público nunca recebe UID, siteId, coordenadas, preferências, e-mail ou metadados privados. O retorno usa uma lista explícita de campos, paginação de 30 marcações e `Cache-Control: private, no-store`. A publicação é revalidada em cada página.
-- Nome de usuário: 3–30 caracteres minúsculos, números, hífen ou sublinhado; início e fim alfanuméricos. A alteração é feita por `PUT /api/account/profile`, com ID token Firebase verificado no servidor. A transação de servidor consulta o username e grava o perfil; as regras negam alterações de username pelo SDK web. Os testes incluem seis disputas simultâneas pelo mesmo nome.
-- Documentos `users` e suas subcoleções são privados, inclusive quando `isPublic=true`. A exposição controlada ocorre somente pela rota do servidor. Não libere leitura pública da coleção `users` para viabilizar a busca de usernames.
-- Ao mudar o username, o endereço antigo deixa de apontar para o usuário. Não existe reserva extra para o nome anterior.
+As marcações exibem `sítio - nome do observador`, usando o nome atual do perfil. O nome abre `/users/{username}` somente quando o perfil é público; em perfis privados, aparece como texto. Essa identificação não acrescenta campos aos documentos de observações.
 
-## Predições e magnitude máxima
+Sítios aceitam latitude de -90 a 90, longitude de -180 a 180, raio maior que zero e até 5000 km e altitude mínima de 0 a 90 graus. Altitude é o ângulo acima do horizonte, não a elevação do terreno.
 
-`/sites/[id]` consulta `/api/predictions` com as condições do sítio, datas UTC, duração mínima, queda de magnitude e **magnitude máxima da estrela (G)**. O campo de magnitude é opcional: vazio significa sem limite; zero e valores negativos são válidos. Magnitudes menores representam estrelas mais brilhantes.
-
-A rota usa `Prediction.getData` com paginação completa (`limit: 'all'`), envia `magnitude_max` ao LIneA e verifica também `g_star <= limite` localmente. Eventos sem magnitude válida são excluídos quando esse limite está ativo. O período padrão é de sete dias e o máximo é 93 dias, incluindo o fim completo do último dia selecionado.
-
-O filtro geográfico é executado pelo servidor LIneA através dos parâmetros do occjs. Não é reaplicado o `geofilter` do occjs 0.2.0, que pode excluir pontos dentro de faixas largas ao verificar apenas limites e linha central amostrados. A aplicação verifica datas, duração, mag drop, altitude e noite nas coordenadas exatas do sítio, com `isNighttime` e raio zero. Eventos sem coordenadas estelares válidas são excluídos com aviso.
-
-`PrecisePrediction` herda de `Prediction` e adapta os transportes internos `_fetchData` e `_fetchEndpoint`, mantendo paginação e aliases no SDK. `lossless-json` preserva o Gaia ID completo de `gaia_source_id`. Esses pontos de extensão são cobertos por testes; revise o adaptador ao atualizar o SDK.
-
-`/events/[id]` oferece o detalhe real e o link `https://solarsystem.linea.org.br/prediction-event-detail/{id}`. As bolinhas usam `getOccultationPaths` e inclusão em polígonos esféricos, com tratamento do antimeridiano:
-
-- Verde: dentro da sombra nominal (`body_*_limit_*`).
-- Vermelho: fora da sombra nominal, dentro da faixa de 1σ (`uncertainty_*_limit_*`).
-- Branco: fora de 1σ.
-- Cinza tracejado: trajetórias indisponíveis.
-
-A cor usa a posição exata do sítio, não seu raio de busca. As predições podem mudar; duração e altitude são aproximações no instante central e não garantem uma detecção. A altitude não inclui refração ou obstáculos locais.
-
-## Cache persistente
-
-As rotas de detalhe e visibilidade utilizam `predictionCache/{eventId}` com validade de cinco minutos. As partes `data.event` e `data.paths` são preenchidas sob demanda. A inclusão de uma parte não estende a validade de outra já existente; um documento vencido nunca é servido como atual. As listagens continuam consultando o occjs com os filtros da busca.
-
-`firestore.indexes.json` desativa a indexação do payload `data` e declara TTL em `expiresAt`. A remoção física por TTL não é imediata; a aplicação verifica a validade antes de utilizar um documento. Falhas de armazenamento do cache não impedem uma consulta científica bem-sucedida. O navegador não pode ler ou escrever o cache diretamente.
-
-## Atualizar regras e migrar os dados existentes
-
-Faça um backup do Firestore e pause gravações durante a migração. Os comandos abaixo precisam das credenciais Admin e do ID explícito do projeto. Nenhuma migração de produção é executada automaticamente pelo aplicativo.
+Publique as regras antes de usar esses fluxos no projeto remoto:
 
 ```powershell
-# Revise o plano: não grava nem apaga documentos.
+firebase deploy --only firestore --project SEU_PROJECT_ID
+```
+
+`firestore.indexes.json` não configura índices especiais nem TTL: o cache atual não usa o Firestore. Nenhum comando do aplicativo publica regras ou altera dados de produção automaticamente.
+
+## Busca de predições
+
+A página do sítio permite filtrar datas UTC, duração mínima, queda mínima de magnitude, magnitude máxima da estrela (G), incerteza máxima da trajetória em quilômetros e eventos noturnos. O raio e a altitude mínima vêm do cadastro do sítio.
+
+Ao editar os filtros, a URL recebe `startDate`, `endDate`, `duration`, `drop`, `maxMagnitude`, `maxUncertaintyKm` e `night`. Limites opcionais vazios são removidos da URL. Links restauram os valores; voltar e avançar também refazem a busca. Edições no formulário são consultadas ao clicar em **Aplicar filtros**.
+
+O período inicial inclui o dia atual e os sete dias seguintes. O limite da busca é de 93 dias, considerando o dia final completo. Magnitudes menores indicam objetos mais brilhantes; zero e magnitudes negativas são válidos. Um limite ativo exclui eventos sem o respectivo dado numérico.
+
+Cada predição exibe duração, queda de magnitude, altitude da estrela, magnitude da estrela (`g_star`) e magnitude aparente do objeto (`apparent_magnitude`). Dados ausentes aparecem como “—”. Datas e horários são apresentados em UTC.
+
+A rota `/api/predictions` usa o occjs com paginação completa (`limit: 'all'`) e filtros geográficos do LIneA. A aplicação verifica também datas, duração, queda de magnitude, magnitude estelar, incerteza, altitude e condição noturna nas coordenadas do sítio. Eventos sem coordenadas estelares válidas são excluídos com aviso.
+
+`PrecisePrediction` adapta o transporte do occjs e usa `lossless-json` para preservar os dígitos de identificadores Gaia grandes. A paginação e os aliases dos parâmetros continuam sob responsabilidade da biblioteca. Revise os testes ao atualizar o SDK.
+
+## Detalhes, sombra e cache
+
+A página do evento oferece os dados da predição, marcações por sítio e acesso à página oficial no LIneA. As cores da faixa da sombra usam as trajetórias retornadas por `getOccultationPaths`:
+
+- Verde: dentro da sombra nominal.
+- Vermelho: fora da sombra nominal, dentro da faixa de 1σ.
+- Branco: fora da faixa de 1σ.
+- Cinza tracejado: classificação indisponível.
+
+A classificação considera a posição exata do sítio, não o raio da busca. A geometria usa polígonos esféricos com tratamento do antimeridiano. Duração e altitude são aproximações no instante central; não incluem obstáculos locais nem refração atmosférica.
+
+As rotas de detalhes e visibilidade usam cache em memória por cinco minutos, limitado a 200 entradas por processo. Eventos e trajetórias têm validades independentes. Reinícios limpam o cache; não há dependência do Firebase Admin. O carregamento dos detalhes repete uma vez falhas temporárias, respeitando o cancelamento da navegação.
+
+## Migração opcional
+
+O aplicativo sincroniza as cópias públicas das contas existentes ao entrar. Para converter dados legados e preparar todas as reservas e cópias públicas de uma vez, use o script manual. Ele exige credenciais Admin ou Application Default Credentials e o ID explícito do projeto.
+
+Faça backup, pause gravações e revise a simulação antes de aplicar:
+
+```powershell
+# Apenas mostra o plano.
 npm run migrate:firestore -- --project SEU_PROJECT_ID
 
-# Publique as novas regras e índices no projeto correto.
-firebase deploy --only firestore --project SEU_PROJECT_ID
-
-# Converta perfis e marcações; preserve os documentos antigos como backup.
+# Grava os destinos e preserva os documentos legados.
 npm run migrate:firestore -- --project SEU_PROJECT_ID --apply
 
-# Opcional, após revisar o resultado: remova as coleções legadas.
+# Após conferir o resultado, remove as marcações antigas de tagged.
 npm run migrate:firestore -- --project SEU_PROJECT_ID --apply --cleanup-legacy
 ```
 
-A migração converte `theme` em `preferences.theme`, os documentos antigos de `observations` em `tagged`, os status em português para os novos valores e as datas em Timestamp. Preserva os `createdAt` disponíveis e não sobrescreve uma marcação nova com uma cópia antiga. Detecta usernames duplicados, campos de usuário sem mapeamento e registros inválidos antes da primeira gravação. A limpeza das coleções legadas só acontece com `--apply --cleanup-legacy`, depois da gravação e verificação dos destinos.
-
-As regras novas negam acesso às antigas coleções `publicUsers`, `usernames` e `observations`, mesmo antes da limpeza. Não volte a publicar as regras antigas depois da migração.
+A migração converte `preferences.theme` para `theme`, `tagged` para `observations`, resumos aninhados para campos planos e datas para Timestamp. Remove `createdAt` dos destinos, detecta nomes de usuário duplicados e valida o plano antes da primeira gravação. Não apaga as coleções de perfis públicos nem as reservas de nomes.
 
 ## Verificação e produção
 
 ```powershell
 npm test
-npm run typecheck
 npm run build
-npm run audit:occjs
-npm run test:rules
 npm start
 ```
 
-`npm test` executa testes offline. `test:rules` requer Firebase CLI e Java 21+ no PATH, inicia somente o emulador Firestore na porta 8787 e utiliza `demo-sonbras`. Testa isolamento, novo schema, disputa de username, compartilhamento/revogação, paginação, cache e migração. Esses testes não alteram produção. `audit:occjs` compara duração, mag drop, magnitude máxima e raio com a API real e verifica o Gaia ID; aceita uma data ISO como argumento.
+`npm test` executa os testes offline; o teste das regras é ignorado sem o emulador. Para testar as permissões, instale Firebase CLI e Java 21 ou superior e execute:
 
-Hospede em um runtime Next.js/Node.js com saída HTTPS para o LIneA e acesso ao Firebase Admin. Não é um export estático. Ajuste limites de execução conforme o provedor.
+```powershell
+npm run test:rules
+```
 
-Referências: [filtros LIneA](https://solarsystem.linea.org.br/docs/user-guide/filter-events/), [geometria oficial](https://github.com/linea-it/lineaSSP/blob/main/lineaSSP/api/occviz.py), [transações Firestore](https://firebase.google.com/docs/firestore/transaction-data-contention).
+O comando usa somente o emulador Firestore na porta 8787 e o projeto `demo-sonbras`. Verifica isolamento, reserva de nomes, publicação, privacidade e revogação, sem alterar produção.
+
+Para conferir filtros e precisão dos identificadores na API real do LIneA:
+
+```powershell
+npm run audit:occjs -- 2026-10-20T00:00:00Z
+```
+
+Troque a data por um período com predições. Esse comando precisa de acesso à internet.
+
+A hospedagem deve executar Next.js/Node.js com saída HTTPS para o LIneA. O aplicativo não utiliza exportação estática.
