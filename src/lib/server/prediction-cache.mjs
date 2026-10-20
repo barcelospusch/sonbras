@@ -1,22 +1,16 @@
-import { Timestamp } from 'firebase-admin/firestore';
-export const CACHE_TTL_MS=5*60*1000;
-/** Cache is never a source of permanent truth. An expired or unavailable entry is a miss. */
-export async function cachedPrediction(database,id,part,load,now=Date.now()) {
-  const ref=database?.collection('predictionCache').doc(id);
-  if (ref) {
-    try {
-      const snapshot=await ref.get(),entry=snapshot.data();
-      if (entry?.expiresAt?.toMillis()>now && entry.data?.[part]!==undefined) return entry.data[part];
-    } catch { /* Upstream remains available during cache storage failures. */ }
-  }
-  const value=await load();
-  if (ref) {
-    try {
-      await database.runTransaction(async transaction=>{
-        const current=await transaction.get(ref),entry=current.data(),fresh=entry?.expiresAt?.toMillis()>now;
-        transaction.set(ref,{data:{...(fresh ? entry.data : {}),[part]:value},fetchedAt:fresh ? entry.fetchedAt : Timestamp.fromMillis(now),expiresAt:fresh ? entry.expiresAt : Timestamp.fromMillis(now+CACHE_TTL_MS)});
-      });
-    } catch { /* A successful scientific query must not fail because its cache write failed. */ }
-  }
-  return value;
+export const CACHE_TTL_MS = 5 * 60 * 1000;
+export function createPredictionCache() {
+  const entries = new Map();
+  return async function cachedPrediction(id, part, load, now = Date.now()) {
+    const key = `${id}:${part}`,
+      entry = entries.get(key);
+    if (entry && entry.expiresAt > now) return entry.value;
+    const value = await load();
+    for (const [key, entry] of entries)
+      if (entry.expiresAt <= now) entries.delete(key);
+    if (entries.size >= 200) entries.delete(entries.keys().next().value);
+    entries.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+    return value;
+  };
 }
+export const predictionCache = createPredictionCache();

@@ -1,1 +1,11 @@
-{"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"emulators":{"firestore":{"port":8787},"ui":{"enabled":false},"singleProjectMode":true}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": { "port": 8787 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}
