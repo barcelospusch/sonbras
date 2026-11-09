@@ -1,6 +1,7 @@
 "use client";
 import { use, useEffect, useRef, useState } from "react";
 import { UserCircleIcon } from "@phosphor-icons/react";
+import { CopyProfileLink } from "@/components/copy-profile-link";
 import { Shell } from "@/components/shell";
 import { ObservationList } from "@/components/observation-list";
 import { useApp } from "@/components/app-provider";
@@ -104,15 +105,13 @@ export default function PublicUserPage({ params }) {
       ) : (
         <>
           <section className="public-profile-head">
-            <span className="profile-avatar">
-              {profile.displayName.charAt(0).toUpperCase()}
-            </span>
             <div>
               <span className="eyebrow">PERFIL DO OBSERVADOR</span>
               <h1>{profile.displayName}</h1>
               <span className="profile-username">@{profile.username}</span>
               <p>{profile.institution || "Observador independente"}</p>
             </div>
+            <CopyProfileLink profile={profile} />
           </section>
           {!profile.isPublic && (
             <p className="notice">

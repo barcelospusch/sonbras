@@ -15,20 +15,21 @@ export const defaultProfile = {
   username: "",
   theme: "dark",
   isPublic: false,
+  isAdmin: false,
 };
 
-export function profileInput(values) {
+export function profileInput(values, administrative = false) {
   const input = {
     displayName: String(values.displayName ?? "").trim(),
     institution: String(values.institution ?? "").trim(),
     username: normalizeUsername(String(values.username ?? "")),
     isPublic: values.isPublic === true,
   };
-  if (!validUsername(input.username))
+  if (!validUsername(input.username) && (!administrative || input.username || input.isPublic))
     throw new Error(
       "Use um nome de usuário com 3 a 30 caracteres: letras minúsculas, números, hífen ou sublinhado. Comece e termine com letra ou número.",
     );
-  if (!input.displayName || input.displayName.length > 100)
+  if ((!administrative && !input.displayName) || input.displayName.length > 100)
     throw new Error("Informe seu nome com até 100 caracteres.");
   if (input.institution.length > 150)
     throw new Error("Informe a instituição com até 150 caracteres.");
@@ -67,8 +68,11 @@ export async function saveTheme(uid, theme) {
   );
 }
 
-export async function saveProfile(uid, values) {
-  const input = profileInput(values);
+export async function saveProfile(uid, values, { administrative = false } = {}) {
+  const input = profileInput(values, administrative);
+  const settings = administrative
+    ? { isAdmin: values.isAdmin === true, theme: values.theme }
+    : {};
   await runTransaction(getDatabase(), async (transaction) => {
     const ref = userRef(uid);
     const current = await transaction.get(ref);
@@ -76,20 +80,22 @@ export async function saveProfile(uid, values) {
       throw new Error(
         "Aguarde o carregamento do seu perfil e tente novamente.",
       );
-    const reservationRef = usernameRef(input.username);
-    const reservation = await transaction.get(reservationRef);
-    if (reservation.exists() && reservation.data().uid !== uid)
-      throw new Error("Este nome de usuário já está em uso. Escolha outro.");
     const previous = current.data().username;
+    if (previous && !input.username)
+      throw new Error("Informe um nome de usuário para substituir o atual.");
+    const reservationRef = input.username ? usernameRef(input.username) : null;
+    const reservation = reservationRef ? await transaction.get(reservationRef) : null;
+    if (reservation?.exists() && reservation.data().uid !== uid)
+      throw new Error("Este nome de usuário já está em uso. Escolha outro.");
     const previousRef =
       previous && previous !== input.username ? usernameRef(previous) : null;
     const previousReservation = previousRef
       ? await transaction.get(previousRef)
       : null;
-    transaction.set(reservationRef, { uid });
+    if (reservationRef) transaction.set(reservationRef, { uid });
     if (previousRef && previousReservation?.data()?.uid === uid)
       transaction.delete(previousRef);
-    transaction.update(ref, { ...input, updatedAt: serverTimestamp() });
+    transaction.update(ref, { ...input, ...settings, updatedAt: serverTimestamp() });
     transaction.set(publicProfileRef(uid), publicProfileData(input));
   });
   return input;

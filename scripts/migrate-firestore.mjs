@@ -10,6 +10,7 @@ import {
   publicObservationData,
 } from "../src/lib/public-data.mjs";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { observationSiteKey } from "../src/lib/observations.mjs";
 import { migrateUser, migrateObservation } from "./lib/migration.mjs";
 
 const args = process.argv.slice(2),
@@ -93,14 +94,14 @@ for (const user of users.docs) {
   const currentIds = new Set();
   for (const observation of current.docs) {
     const data = migrateObservation(observation.data(), now),
-      id = `${data.eventId}~${data.siteId}`;
+      id = `${data.eventId}~${observationSiteKey(data.siteId, data.siteSource)}`;
     currentIds.add(id);
     plan.push({ ref: observation.ref, data });
     observationCount++;
   }
   for (const old of legacy.docs) {
     const data = migrateObservation(old.data(), now),
-      id = `${data.eventId}~${data.siteId}`;
+      id = `${data.eventId}~${observationSiteKey(data.siteId, data.siteSource)}`;
     if (!currentIds.has(id)) {
       plan.push({ ref: user.ref.collection("observations").doc(id), data });
       currentIds.add(id);

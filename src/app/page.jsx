@@ -1,5 +1,6 @@
 "use client";
 import { useApp } from "@/components/app-provider";
+import { SiteCard } from "@/components/site-card";
 import { Shell } from "@/components/shell";
 import { DeleteSite, SiteForm } from "@/components/site-form";
 import { SkyArt } from "@/components/sky-art";
@@ -9,20 +10,18 @@ import {
   ArrowUpRightIcon,
   BinocularsIcon,
   BroadcastIcon,
-  CrosshairIcon,
   FunnelSimpleIcon,
   GlobeHemisphereWestIcon,
   MagnifyingGlassIcon,
   MapPinIcon,
-  PencilSimpleIcon,
   PlusIcon,
   StarFourIcon,
-  TrashIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
 export default function HomePage() {
-  const { sites, user, loading, error, configured } = useApp();
+  const { sites, user, loading, error, configured, defaultSites, defaultSitesLoading, defaultSitesError } =
+    useApp();
   const [search, setSearch] = useState(""),
     [sort, setSort] = useState("recent");
   const [form, setForm] = useState(null),
@@ -62,7 +61,7 @@ export default function HomePage() {
             <br className="desktop-break" /> passagens de uma sombra. Prepare-se
             para o instante.
           </p>
-          <a href="#sites" className="hero-link">
+          <a href="#default-sites" className="hero-link">
             Encontre sua próxima observação <ArrowRightIcon size={17} />
           </a>
         </div>
@@ -109,6 +108,27 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+      <section id="default-sites" className="sites-section">
+        <div className="section-heading">
+          <div>
+            <h2>Sítios padrão <span className="count">{defaultSites.length}</span></h2>
+            <p>Explore predições em locais de referência, disponíveis sem uma conta.</p>
+          </div>
+        </div>
+        {defaultSitesLoading ? (
+          <p role="status">Carregando sítios padrão…</p>
+        ) : defaultSitesError ? (
+          <p className="error" role="alert">{defaultSitesError}</p>
+        ) : defaultSites.length ? (
+          <div className="site-grid">
+            {[...defaultSites].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((site) => (
+              <SiteCard key={site.id} site={site} href={`/sites/default/${encodeURIComponent(site.id)}`} />
+            ))}
+          </div>
+        ) : (
+          <p>Nenhum sítio padrão disponível.</p>
+        )}
+      </section>
       <section id="sites" className="sites-section">
         <div className="section-heading">
           <div>
@@ -162,52 +182,14 @@ export default function HomePage() {
           </div>
         ) : filtered.length ? (
           <div className="site-grid">
-            {filtered.map((site, index) => (
-              <article className="site-card" key={site.id}>
-                <div className={`site-map map-${index % 3}`}>
-                  <div className="map-lines" />
-                  <span className="map-point">
-                    <MapPinIcon size={31} weight="duotone" />
-                  </span>
-                  <span className="map-tag">
-                    <span className="online-dot" /> SÍTIO DE OBSERVAÇÃO
-                  </span>
-                  <div className="card-actions">
-                    <button
-                      aria-label={`Editar ${site.name}`}
-                      onClick={() => setForm(site)}
-                    >
-                      <PencilSimpleIcon size={17} />
-                    </button>
-                    <button
-                      aria-label={`Excluir ${site.name}`}
-                      onClick={() => setDeleting(site)}
-                    >
-                      <TrashIcon size={17} />
-                    </button>
-                  </div>
-                </div>
-                <div className="site-card-body">
-                  <h3>{site.name}</h3>
-                  <p className="coordinates">
-                    <CrosshairIcon size={15} />
-                    {number(site.latitude, 4)}°, {number(site.longitude, 4)}°
-                  </p>
-                  <div className="site-specs">
-                    <span>
-                      <BroadcastIcon size={17} weight="duotone" />
-                      {number(site.radiusKm, 0)} km de raio
-                    </span>
-                    <span>
-                      <BinocularsIcon size={17} weight="duotone" />≥{" "}
-                      {number(site.minObservationAltitude, 0)}° de altitude
-                    </span>
-                  </div>
-                  <Link href={`/sites/${site.id}`} className="card-link">
-                    Explorar predições <ArrowRightIcon size={18} />
-                  </Link>
-                </div>
-              </article>
+            {filtered.map((site) => (
+              <SiteCard
+                key={site.id}
+                site={site}
+                href={`/sites/${encodeURIComponent(site.id)}`}
+                onEdit={() => setForm(site)}
+                onDelete={() => setDeleting(site)}
+              />
             ))}
           </div>
         ) : (

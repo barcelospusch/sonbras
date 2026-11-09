@@ -23,6 +23,7 @@ export function migrateUser(data, now = Timestamp.now()) {
     "displayName",
     "institution",
     "isPublic",
+    "isAdmin",
     "email",
     "preferences",
     "theme",
@@ -59,6 +60,7 @@ export function migrateUser(data, now = Timestamp.now()) {
     displayName: data.displayName || "",
     institution: data.institution || "",
     isPublic: data.isPublic === true,
+    isAdmin: data.isAdmin === true,
     email: data.email || "",
     theme,
     updatedAt: timestamp(data.updatedAt, now),
@@ -68,6 +70,7 @@ export function migrateObservation(data, now = Timestamp.now()) {
   const allowed = new Set([
     "eventId",
     "siteId",
+    "siteSource",
     "status",
     "eventSnapshot",
     "siteNameSnapshot",
@@ -99,6 +102,8 @@ export function migrateObservation(data, now = Timestamp.now()) {
     !/^[\w-]{1,128}$/.test(data.siteId || "")
   )
     throw new Error("Identificador de evento ou sítio inválido.");
+  if (data.siteSource !== undefined && !["personal", "default"].includes(data.siteSource))
+    throw new Error("Origem de sítio inválida.");
   const name = data.eventSnapshot?.name || data.eventName,
     siteNameSnapshot = data.siteNameSnapshot || data.siteName;
   if (
@@ -111,6 +116,7 @@ export function migrateObservation(data, now = Timestamp.now()) {
   return {
     eventId: data.eventId,
     siteId: data.siteId,
+    ...(data.siteSource === "default" && { siteSource: "default" }),
     tag: status,
     eventName: name,
     dateTime: timestamp(data.eventSnapshot?.dateTime || data.dateTime),

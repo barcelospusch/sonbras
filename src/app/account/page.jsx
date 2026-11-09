@@ -10,12 +10,13 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useApp } from "@/components/app-provider";
+import { CopyProfileLink } from "@/components/copy-profile-link";
 import { ObservationList } from "@/components/observation-list";
 import { Shell } from "@/components/shell";
 import { ThemePicker } from "@/components/theme-picker";
 import { auth } from "@/lib/firebase";
 import { saveProfile as persistProfile } from "@/lib/repositories/profile";
-import { FloppyDiskIcon, ShareNetworkIcon } from "@phosphor-icons/react";
+import { FloppyDiskIcon } from "@phosphor-icons/react";
 export default function AccountPage() {
   const {
     user,
@@ -36,9 +37,11 @@ export default function AccountPage() {
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
     [reauth, setReauth] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false),
+    [emailError, setEmailError] = useState(""),
+    [emailNotice, setEmailNotice] = useState("");
   const [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
-    [copy, setCopy] = useState("");
+    [notice, setNotice] = useState("");
   useEffect(() => {
     setValues({
       displayName: profile.displayName || user?.displayName || "",
@@ -54,7 +57,7 @@ export default function AccountPage() {
     user?.displayName,
   ]);
   useEffect(() => {
-    setEmail(user?.email || "");
+    setEmail("");
   }, [user?.email]);
   async function saveProfile(e) {
     e.preventDefault();
@@ -91,9 +94,9 @@ export default function AccountPage() {
     e.preventDefault();
     const current = auth?.currentUser;
     if (!current) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
+    setEmailBusy(true);
+    setEmailError("");
+    setEmailNotice("");
     try {
       if (reauth) {
         if (current.providerData.some((p) => p.providerId === "password"))
@@ -106,26 +109,39 @@ export default function AccountPage() {
       await verifyBeforeUpdateEmail(current, email.trim());
       setPassword("");
       setReauth(false);
-      setNotice(
+      setEmailNotice(
         "Enviamos uma confirmação para o novo e-mail. Abra o link recebido para concluir a alteração e depois atualize sua sessão.",
       );
     } catch (e) {
       const code = e.code;
       if (code === "auth/requires-recent-login") {
         setReauth(true);
-        setError("Confirme sua identidade abaixo para alterar o e-mail.");
+        setEmailError("Confirme sua identidade abaixo para alterar o e-mail.");
       } else if (code === "auth/email-already-in-use")
-        setError("Este e-mail já está sendo usado por outra conta.");
+        setEmailError("Este e-mail já está sendo usado por outra conta.");
       else if (code === "auth/invalid-credential")
-        setError(
+        setEmailError(
           "Não foi possível confirmar sua identidade. Verifique sua senha.",
         );
       else
-        setError(
+        setEmailError(
           "Não foi possível enviar a confirmação. Verifique o e-mail e tente novamente.",
         );
     } finally {
-      setBusy(false);
+      setEmailBusy(false);
+    }
+  }
+  async function refreshEmailSession() {
+    setEmailBusy(true);
+    setEmailError("");
+    setEmailNotice("");
+    try {
+      await refreshUser();
+      setEmailNotice("Sessão atualizada.");
+    } catch {
+      setEmailError("Entre novamente para atualizar sua sessão.");
+    } finally {
+      setEmailBusy(false);
     }
   }
   return (
@@ -252,7 +268,7 @@ export default function AccountPage() {
                     ? "Seu perfil está público. Compartilhe seus eventos marcados com outros observadores."
                     : "Ative e salve seu perfil público para compartilhar suas marcações."}
                 </p>
-                <div className="share-actions">
+                <CopyProfileLink profile={profile}>
                   {profile.username && (
                     <Link
                       className="button secondary"
@@ -261,52 +277,34 @@ export default function AccountPage() {
                       Ver meu perfil
                     </Link>
                   )}
-                  <button
-                    className="button secondary"
-                    disabled={!profile.isPublic || !profile.username}
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(
-                          `${window.location.origin}/users/${profile.username}`,
-                        );
-                        setCopy("Link copiado.");
-                      } catch {
-                        setCopy(
-                          `Copie o link: ${window.location.origin}/users/${profile.username}`,
-                        );
-                      }
-                    }}
-                  >
-                    <ShareNetworkIcon size={17} weight="duotone" />
-                    Copiar link
-                  </button>
-                </div>
-                {copy && (
-                  <p role="status" className="field-hint">
-                    {copy}
-                  </p>
-                )}
+                </CopyProfileLink>
               </section>
             </div>
           </div>
           <section className="detail-panel email-panel">
             <h2>E-mail da conta</h2>
-            <p className="field-hint">
-              A alteração só é concluída após a confirmação no novo endereço.
+            <p className="email-current">
+              <span className="muted">Endereço atual</span>
+              <strong>{user.email || "Nenhum endereço cadastrado"}</strong>
             </p>
+            <p className="field-hint">
+              Abra o link enviado ao novo endereço para confirmar a alteração.
+            </p>
+            {emailError && <p className="error" role="alert">{emailError}</p>}
+            {emailNotice && <p className="notice" role="status">{emailNotice}</p>}
             <form onSubmit={changeEmail}>
-              <label>
-                Novo e-mail
-                <input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </label>
-              {reauth &&
-                user.providerData.some((p) => p.providerId === "password") && (
+              <div className="email-fields">
+                <label>
+                  Novo e-mail
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </label>
+                {reauth && user.providerData.some((p) => p.providerId === "password") && (
                   <label>
                     Confirme sua senha atual
                     <input
@@ -318,29 +316,19 @@ export default function AccountPage() {
                     />
                   </label>
                 )}
-              <button
-                className="button secondary"
-                disabled={busy || email.trim() === user.email}
-              >
-                {busy
-                  ? "Aguarde…"
-                  : reauth
-                    ? "Confirmar identidade e enviar"
-                    : "Enviar confirmação"}
-              </button>
-              <button
-                type="button"
-                className="text-link"
-                onClick={() =>
-                  refreshUser()
-                    .then(() => setNotice("Sessão atualizada."))
-                    .catch(() =>
-                      setError("Entre novamente para atualizar sua sessão."),
-                    )
-                }
-              >
-                Já confirmei, atualizar sessão
-              </button>
+              </div>
+              <div className="email-actions">
+                <button className="button secondary" disabled={emailBusy || !email.trim() || email.trim() === user.email}>
+                  {emailBusy
+                    ? "Aguarde…"
+                    : reauth
+                      ? "Confirmar identidade e enviar"
+                      : "Enviar confirmação"}
+                </button>
+                <button type="button" className="text-link" disabled={emailBusy} onClick={refreshEmailSession}>
+                  Já confirmei, atualizar sessão
+                </button>
+              </div>
             </form>
           </section>
           <div className="section-heading">

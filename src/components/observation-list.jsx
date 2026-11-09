@@ -6,6 +6,7 @@ import {
   MapPinIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
+import { EventPastBadge } from "./event-past-badge";
 import { useApp } from "./app-provider";
 import { removeObservation } from "@/lib/repositories/observations";
 import { utcDate } from "@/lib/format";
@@ -47,7 +48,8 @@ export function ObservationList({ observations, own = false, observer }) {
         </p>
       )}
       {observations.map((o) => {
-        const siteId = "siteId" in o ? o.siteId : "";
+        const siteId = own ? o.siteId : "";
+        const siteParam = o.siteSource === "default" ? "defaultSite" : "site";
         return (
           <div
             className={`observation-item ${own ? "with-actions" : ""}`}
@@ -56,11 +58,12 @@ export function ObservationList({ observations, own = false, observer }) {
             <div className="observation-card">
               <Link
                 className="observation-event"
-                href={`/events/${encodeURIComponent(o.eventId)}${own && siteId ? `?site=${encodeURIComponent(siteId)}` : ""}`}
+                href={`/events/${encodeURIComponent(o.eventId)}${siteId ? `?${siteParam}=${encodeURIComponent(siteId)}` : ""}`}
               >
                 <span className={`observation-tag tag-${o.tag}`}>
                   {tagLabels[o.tag]}
                 </span>
+                <EventPastBadge dateTime={o.dateTime} />
                 <h3>{o.eventName}</h3>
                 <p>
                   <CalendarBlankIcon size={15} weight="duotone" />

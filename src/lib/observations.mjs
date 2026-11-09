@@ -7,6 +7,10 @@ export const tagLabels = {
 };
 export const observationTags = Object.keys(tagLabels);
 export const eventId = (event) => String(event.hash_id || event.id);
+export function observationSiteKey(siteId, siteSource) {
+  return siteSource === "default" ? `default~${siteId}` : siteId;
+}
+
 export function observerIdentity(profile, fallbackName) {
   const name =
     (typeof profile?.displayName === "string" && profile.displayName.trim()) ||
@@ -27,6 +31,7 @@ export function observationData(event, site, status) {
   return {
     eventId: eventId(event),
     siteId: site.id,
+    ...(site.siteSource === "default" && { siteSource: "default" }),
     tag: status,
     eventName:
       event.name || event.provisional_designation || "Ocultação estelar",
@@ -44,6 +49,7 @@ export function serializeObservation(id, data) {
     id,
     eventId: data.eventId,
     siteId: data.siteId,
+    ...(data.siteSource === "default" && { siteSource: "default" }),
     tag: data.tag,
     eventName: data.eventName || "Ocultação estelar",
     dateTime: Number.isFinite(date.getTime()) ? date.toISOString() : "",

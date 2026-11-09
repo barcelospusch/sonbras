@@ -2,6 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function admin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+    function manages(uid) { return owner(uid) || admin(); }
     function published(uid) {
       let profile = get(/databases/$(database)/documents/users/$(uid)).data;
       let projection = get(/databases/$(database)/documents/publicUsers/$(uid)).data;
@@ -10,7 +16,7 @@ service cloud.firestore {
     match /publicUsers/{uid} {
       allow get: if owner(uid) || (resource.data.keys().hasOnly(['username','displayName','institution','isPublic'])
         && resource.data.isPublic == true && published(uid));
-      allow create, update: if owner(uid)
+      allow create, update: if manages(uid)
         && request.resource.data.keys().hasAll(['username','displayName','institution','isPublic'])
         && request.resource.data.keys().hasOnly(['username','displayName','institution','isPublic'])
         && request.resource.data.username == getAfter(/databases/$(database)/documents/users/$(uid)).data.username
@@ -32,7 +38,8 @@ service cloud.firestore {
     }
     function profileValid(d) {
       return d.keys().hasAll(['username','displayName','institution','isPublic','email','theme','updatedAt'])
-        && d.keys().hasOnly(['username','displayName','institution','isPublic','email','theme','updatedAt'])
+        && d.keys().hasOnly(['username','displayName','institution','isPublic','email','theme','updatedAt','isAdmin'])
+        && d.get('isAdmin', false) is bool
         && d.username is string && (d.username == '' || d.username.matches('^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$'))
         && d.displayName is string && d.displayName.size() <= 100
         && d.institution is string && d.institution.size() <= 150
@@ -52,7 +59,8 @@ service cloud.firestore {
     }
     function observationValid(d) {
       return d.keys().hasAll(['eventId','siteId','tag','eventName','dateTime','siteName','updatedAt'])
-        && d.keys().hasOnly(['eventId','siteId','tag','eventName','dateTime','siteName','updatedAt'])
+        && d.keys().hasOnly(['eventId','siteId','siteSource','tag','eventName','dateTime','siteName','updatedAt'])
+        && d.get('siteSource', 'personal') in ['personal', 'default']
         && d.eventId is string && d.eventId.matches('^[A-Za-z0-9_-]{1,128}$')
         && d.siteId is string && d.siteId.matches('^[A-Za-z0-9_-]{1,128}$')
         && d.tag in ['interested','planned','observed']
@@ -61,25 +69,35 @@ service cloud.firestore {
         && d.siteName is string && d.siteName.size() > 0 && d.siteName.size() <= 100
         && d.updatedAt == request.time;
     }
+    function observationSiteMatches(uid, d) {
+      return d.get('siteSource', 'personal') == 'default'
+        ? get(/databases/$(database)/documents/defaultSites/$(d.siteId)).data.name == d.siteName
+        : get(/databases/$(database)/documents/users/$(uid)/sites/$(d.siteId)).data.name == d.siteName;
+    }
     match /users/{uid} {
-      allow get: if owner(uid);
+      allow get: if manages(uid);
+      allow list: if admin();
       allow create: if owner(uid) && profileValid(request.resource.data)
+        && request.resource.data.isAdmin == false
         && request.resource.data.username == '' && request.resource.data.isPublic == false;
-      allow update: if owner(uid) && profileValid(request.resource.data)
+      allow update: if manages(uid) && profileValid(request.resource.data)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin']) || admin())
+        && (owner(uid) || request.resource.data.email == resource.data.email)
+        && (request.resource.data.username != '' || request.resource.data.isPublic == false)
         && (request.resource.data.username == resource.data.username
           || (request.resource.data.username != ''
             && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid
             && (resource.data.username == ''
               || !existsAfter(/databases/$(database)/documents/usernames/$(resource.data.username)))));
       match /sites/{siteId} {
-        allow read, delete: if owner(uid);
+        allow read, delete: if manages(uid);
         allow create: if owner(uid) && siteValid(request.resource.data);
-        allow update: if owner(uid) && siteValid(request.resource.data);
+        allow update: if manages(uid) && siteValid(request.resource.data);
       }
       match /observations/{obsId} {
         allow read, delete: if owner(uid);
         allow create, update: if owner(uid) && observationValid(request.resource.data)
-          && get(/databases/$(database)/documents/users/$(uid)/sites/$(request.resource.data.siteId)).data.name == request.resource.data.siteName;
+          && observationSiteMatches(uid, request.resource.data);
       }
     }
     match /usernames/{username} {
@@ -89,14 +107,19 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.keys().hasAll(['uid'])
         && request.resource.data.keys().hasOnly(['uid'])
-        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.uid is string
+        && manages(request.resource.data.uid)
         && username.matches('^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$')
-        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
-      allow update: if request.auth != null && resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.resource.data.uid)).data.username == username;
+      allow update: if manages(resource.data.uid)
         && request.resource.data == resource.data;
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid
-        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.username != username;
+      allow delete: if manages(resource.data.uid)
+        && getAfter(/databases/$(database)/documents/users/$(resource.data.uid)).data.username != username;
     }
+    match /defaultSites/{siteId} {
+      allow get, list: if true;
+    }
+
     // Old prediction cache and every unlisted collection are inaccessible to clients.
     match /predictionCache/{eventId} { allow read, write: if false; }
   }

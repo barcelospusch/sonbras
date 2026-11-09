@@ -8,7 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useApp } from "./app-provider";
-export function SiteForm({ site, onClose }) {
+export function SiteForm({ site, ownerUid, onClose }) {
   const { user } = useApp();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -41,7 +41,7 @@ export function SiteForm({ site, onClose }) {
     setBusy(true);
     setError("");
     try {
-      await saveSite(user.uid, values, site?.id);
+      await saveSite(ownerUid ?? user.uid, values, site?.id);
       onClose();
     } catch {
       setError(
@@ -211,7 +211,7 @@ export function SiteForm({ site, onClose }) {
     </div>
   );
 }
-export function DeleteSite({ site, onClose }) {
+export function DeleteSite({ site, ownerUid, onClose }) {
   const { user } = useApp();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -220,7 +220,10 @@ export function DeleteSite({ site, onClose }) {
       <dialog className="modal" open aria-labelledby="delete-title">
         <h2 id="delete-title">Excluir {site.name}?</h2>
         <p>
-          O sítio será removido da sua conta. Esta ação não pode ser desfeita.
+          {ownerUid
+            ? "O sítio será removido da conta do usuário."
+            : "O sítio será removido da sua conta."}{" "}
+          A exclusão é permanente. As marcações de eventos já salvas serão preservadas.
         </p>
         {error && (
           <p className="error" role="alert">
@@ -242,7 +245,7 @@ export function DeleteSite({ site, onClose }) {
               if (!user) return;
               setBusy(true);
               try {
-                await removeSite(user.uid, site.id);
+                await removeSite(ownerUid ?? user.uid, site.id);
                 onClose();
               } catch {
                 setError("Não foi possível excluir o sítio.");

@@ -24,13 +24,17 @@ export function getDatabase() {
 }
 
 // Keep collection paths in one place; repositories own reads and writes.
-export const userRef = (uid) => doc(getDatabase(), "users", uid);
+export const usersRef = () => collection(getDatabase(), "users");
+export const userRef = (uid) => doc(usersRef(), uid);
 export const sitesRef = (uid) => collection(userRef(uid), "sites");
 export const siteRef = (uid, id) => doc(sitesRef(uid), id);
 export const observationsRef = (uid) =>
   collection(userRef(uid), "observations");
 export const observationRef = (uid, id) => doc(observationsRef(uid), id);
 export const publicProfileRef = (uid) => doc(getDatabase(), "publicUsers", uid);
+
+// Public collection of default sites (no user-specific path)
+export const defaultSitesRef = () => collection(getDatabase(), "defaultSites");
 export const publicObservationsRef = (uid) =>
   collection(publicProfileRef(uid), "observations");
 export const publicObservationRef = (uid, id) =>

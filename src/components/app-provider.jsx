@@ -1,13 +1,17 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
+import { onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth, firebaseConfigured } from "@/lib/firebase";
+import { auth, defaultSitesRef, firebaseConfigured } from "@/lib/firebase";
 import { subscribeUserData } from "@/lib/repositories/user-data";
 import { defaultProfile, saveTheme } from "@/lib/repositories/profile";
 const AppContext = createContext({
   user: null,
   sites: [],
   observations: [],
+  defaultSites: [],
+  defaultSitesLoading: false,
+  defaultSitesError: "",
   profile: defaultProfile,
   loading: true,
   profileLoading: false,
@@ -24,8 +28,11 @@ export function AppProvider({ children }) {
   const [, bumpSession] = useState(0);
   const [sites, setSites] = useState([]),
     [observations, setObservations] = useState([]);
-  const [profile, setProfile] = useState(defaultProfile),
-    [theme, applyTheme] = useState("dark");
+  const [profile, setProfile] = useState(defaultProfile);
+  const [defaultSites, setDefaultSites] = useState([]);
+  const [defaultSitesLoading, setDefaultSitesLoading] = useState(firebaseConfigured);
+  const [defaultSitesError, setDefaultSitesError] = useState("");
+  const [theme, applyTheme] = useState("dark");
   const [authLoading, setAuthLoading] = useState(firebaseConfigured),
     [sitesLoading, setSitesLoading] = useState(false),
     [profileLoading, setProfileLoading] = useState(false);
@@ -34,6 +41,21 @@ export function AppProvider({ children }) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    if (!firebaseConfigured) return;
+    return onSnapshot(
+      defaultSitesRef(),
+      (snapshot) => {
+        setDefaultSites(snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+        setDefaultSitesLoading(false);
+      },
+      () => {
+        setDefaultSitesError("Não foi possível carregar os sítios padrão.");
+        setDefaultSitesLoading(false);
+      },
+    );
+  }, []);
   useEffect(() => {
     if (!auth) return;
     return onAuthStateChanged(
@@ -80,6 +102,9 @@ export function AppProvider({ children }) {
         user,
         sites,
         observations,
+        defaultSites,
+        defaultSitesLoading,
+        defaultSitesError,
         profile,
         loading: authLoading || sitesLoading,
         profileLoading,

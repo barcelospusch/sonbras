@@ -1,5 +1,6 @@
 "use client";
 import { useApp } from "@/components/app-provider";
+import { EventPastBadge } from "@/components/event-past-badge";
 import { ObservationEditor } from "@/components/observation-editor";
 import { ShadowDot } from "@/components/shadow-dot";
 import { Shell } from "@/components/shell";
@@ -22,8 +23,12 @@ import { use, useEffect, useState } from "react";
 export default function EventPage({ params }) {
   const { id } = use(params);
   const search = useSearchParams();
-  const { sites } = useApp();
-  const site = sites.find((s) => s.id === search.get("site"));
+  const { sites, defaultSites } = useApp();
+  const defaultSiteId = search.get("defaultSite");
+  const site = defaultSiteId
+    ? defaultSites.find((s) => s.id === defaultSiteId)
+    : sites.find((s) => s.id === search.get("site"));
+  const sitePath = defaultSiteId ? "/sites/default" : "/sites";
   const [event, setEvent] = useState(null),
     [error, setError] = useState(""),
     [retry, setRetry] = useState(0);
@@ -46,7 +51,7 @@ export default function EventPage({ params }) {
   const official = `https://solarsystem.linea.org.br/prediction-event-detail/${encodeURIComponent(id)}`;
   return (
     <Shell>
-      <Link className="back-link" href={site ? `/sites/${site.id}` : "/"}>
+      <Link className="back-link" href={site ? `${sitePath}/${encodeURIComponent(site.id)}` : "/"}>
         <ArrowLeftIcon size={17} />
         {site ? `Predições de ${site.name}` : "Meus sítios"}
       </Link>
@@ -85,6 +90,7 @@ export default function EventPage({ params }) {
                 <StarFourIcon size={14} weight="duotone" /> OCULTAÇÃO ESTELAR
               </span>
               <h1>{event.name || event.principal_designation}</h1>
+              <EventPastBadge dateTime={event.date_time} />
               <p>
                 <CalendarBlankIcon size={18} weight="duotone" />{" "}
                 {utcDate(event.date_time)} UTC
@@ -125,7 +131,12 @@ export default function EventPage({ params }) {
               }
             />
           </div>
-          <ObservationEditor event={event} initialSiteId={search.get("site")} />
+          <ObservationEditor
+            key={`${id}:${search.get("site") || ""}:${defaultSiteId || ""}`}
+            event={event}
+            initialSiteId={defaultSiteId || search.get("site")}
+            initialSiteSource={defaultSiteId ? "default" : undefined}
+          />
           {site && (
             <p className="site-shadow-status">
               <ShadowDot

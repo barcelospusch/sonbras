@@ -4,12 +4,12 @@ import {
   observationRef,
   publicObservationRef,
 } from "../firebase.js";
-import { eventId, observationData } from "../observations.mjs";
+import { observationData, observationSiteKey } from "../observations.mjs";
 import { publicObservationData, publicObservationId } from "../public-data.mjs";
 
 export async function saveObservation(uid, event, site, tag, existing) {
-  const id = existing?.id || `${eventId(event)}~${site.id}`;
   const data = observationData(event, site, tag);
+  const id = existing?.id || `${data.eventId}~${observationSiteKey(data.siteId, data.siteSource)}`;
   const stored = {
     ...data,
     dateTime: Timestamp.fromDate(new Date(data.dateTime)),
