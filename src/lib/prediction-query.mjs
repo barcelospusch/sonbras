@@ -67,6 +67,7 @@ export function parsePredictionQuery(p) {
     end,
     maxMagnitude,
     maxUncertaintyKm,
+    includeWeather: p.get("includeWeather") === "true",
     night: p.get("night") !== "false",
   };
 }

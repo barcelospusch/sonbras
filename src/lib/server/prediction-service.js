@@ -27,6 +27,7 @@ export async function searchPredictions(filters, signal) {
     },
     {
       limit: "all",
+      includeWeather: filters.includeWeather ?? false,
       signal: AbortSignal.any([signal, AbortSignal.timeout(55000)]),
     },
   );

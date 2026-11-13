@@ -1,4 +1,4 @@
-import { isNighttime } from "@dimitri.pusch/occjs";
+import { isNighttime } from "@occjs/occjs";
 import { observationAltitude } from "./astronomy.mjs";
 export function filterSitePredictions(
   events,

@@ -1,6 +1,6 @@
 {
   "name": "sonbras",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -12,9 +12,9 @@
     "migrate:firestore": "node --env-file-if-exists=.env.local scripts/migrate-firestore.mjs"
   },
   "dependencies": {
-    "@dimitri.pusch/occjs": "0.3.1",
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
+    "@occjs/occjs": "0.1.0",
     "@phosphor-icons/react": "^2.1.10",
     "firebase": "^12.0.0",
     "lossless-json": "^4.3.2",

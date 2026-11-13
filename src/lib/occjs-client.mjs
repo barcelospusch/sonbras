@@ -1,4 +1,4 @@
-import { Prediction, OccJSError } from "@dimitri.pusch/occjs";
+import { Prediction, OccJSError } from "@occjs/occjs";
 import { parse } from "lossless-json";
 
 // Preserve integer identifiers before JavaScript's Number conversion can round them.
@@ -10,7 +10,7 @@ export function parsePredictionJson(text) {
   );
 }
 
-/** occjs 0.3.1 transport adapter. Query aliases and pagination remain owned by occjs. */
+/** occjs transport adapter. Query aliases and pagination remain owned by occjs. */
 export class PrecisePrediction extends Prediction {
   constructor(options = {}) {
     super(options);

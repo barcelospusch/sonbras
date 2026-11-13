@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { PrecisePrediction } from "../src/lib/occjs-client.mjs";
 import { filterSitePredictions } from "../src/lib/prediction-filters.mjs";
 import { classifyShadow } from "../src/lib/shadow.mjs";
@@ -117,7 +118,9 @@ console.log(
       gaiaExact: true,
       siteClassification: classifyShadow(paths, site.latitude, site.longitude),
       centralPathClassification: "shadow",
-      sdkVersion: "0.3.1",
+      sdkVersion: JSON.parse(
+        readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+      ).dependencies["@occjs/occjs"],
     },
     null,
     2,

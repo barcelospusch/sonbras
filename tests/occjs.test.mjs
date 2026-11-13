@@ -50,7 +50,7 @@ test("uncertainty excludes unknown and non-finite values only when enabled", () 
   );
 });
 
-test("occjs 0.3.1 paginates capped pages, maps new aliases and preserves Gaia IDs", async (t) => {
+test("occjs paginates capped pages, maps new aliases and preserves Gaia IDs", async (t) => {
   const urls = [];
   const controller = new AbortController();
   t.mock.method(globalThis, "fetch", async (url, options) => {

@@ -1,5 +1,5 @@
 const config = {
-  serverExternalPackages: ["@dimitri.pusch/occjs"],
+  serverExternalPackages: ["@occjs/occjs"],
   poweredByHeader: false,
 };
 export default config;
