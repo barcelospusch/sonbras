@@ -1,8 +1,14 @@
 "use client";
 import { use, useEffect, useRef, useState } from "react";
-import { UserCircleIcon } from "@phosphor-icons/react";
+import {
+  AtIcon,
+  BuildingIcon,
+  EnvelopeIcon,
+  UserCircleIcon,
+} from "@phosphor-icons/react";
 import { CopyProfileLink } from "@/components/copy-profile-link";
 import { Shell } from "@/components/shell";
+import { SkyArt } from "@/components/sky-art";
 import { ObservationList } from "@/components/observation-list";
 import { useApp } from "@/components/app-provider";
 import { normalizeUsername, validUsername } from "@/lib/username.mjs";
@@ -83,6 +89,13 @@ export default function PublicUserPage({ params }) {
       if (!signal.aborted) setMore(false);
     }
   }
+  const displayName = profile?.displayName?.trim() || profile?.username || "";
+  const initials = displayName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0])
+    .join("")
+    .toLocaleUpperCase("pt-BR");
   return (
     <Shell>
       {loading ? (
@@ -104,14 +117,45 @@ export default function PublicUserPage({ params }) {
         </div>
       ) : (
         <>
-          <section className="public-profile-head">
-            <div>
-              <span className="eyebrow">PERFIL DO OBSERVADOR</span>
-              <h1>{profile.displayName}</h1>
-              <span className="profile-username">@{profile.username}</span>
-              <p>{profile.institution || "Observador independente"}</p>
+          <section className="public-profile-head" aria-labelledby="profile-name">
+            <div className="public-profile-cover">
+              <SkyArt compact />
             </div>
-            <CopyProfileLink profile={profile} />
+            <div className="public-profile-body">
+              <div className="public-profile-avatar" aria-hidden="true">
+                {initials}
+              </div>
+              <div className="public-profile-overview">
+                <div>
+                  <h1 id="profile-name">{displayName}</h1>
+                  <ul className="public-profile-details">
+                    <li>
+                      <AtIcon size={17} aria-hidden="true" />
+                      {profile.username}
+                    </li>
+                    <li>
+                      <BuildingIcon size={17} weight="duotone" aria-hidden="true" />
+                      {profile.institution || "Observador independente"}
+                    </li>
+                    {profile.publicEmail && (
+                      <li>
+                        <EnvelopeIcon size={17} weight="duotone" aria-hidden="true" />
+                        <a href={`mailto:${encodeURIComponent(profile.publicEmail).replace("%40", "@")}`}>
+                          {profile.publicEmail}
+                        </a>
+                      </li>
+                    )}
+                    {profile.orcid && (
+                      <li><a href={profile.orcid}>ORCID</a></li>
+                    )}
+                    {profile.lattes && (
+                      <li><a href={profile.lattes}>Currículo Lattes</a></li>
+                    )}
+                  </ul>
+                </div>
+                <CopyProfileLink profile={profile} />
+              </div>
+            </div>
           </section>
           {!profile.isPublic && (
             <p className="notice">

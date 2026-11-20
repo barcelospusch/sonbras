@@ -111,6 +111,7 @@ export function subscribeUserData(user, callbacks) {
       report("observations");
       if (snapshot.metadata.hasPendingWrites || snapshot.metadata.fromCache)
         return;
+      safe.setObservationsReady(true);
       const entries = snapshot.docs.map((entry) => ({
         id: entry.id,
         data: entry.data(),
@@ -121,11 +122,13 @@ export function subscribeUserData(user, callbacks) {
         "Não foi possível sincronizar suas marcações públicas. Verifique as regras do Firestore.",
       );
     },
-    () =>
+    () => {
+      safe.setObservationsReady(false);
       report(
         "observations",
         "Não foi possível carregar suas marcações. Verifique a conexão e as regras do Firestore.",
-      ),
+      );
+    },
   );
   return () => {
     active = false;

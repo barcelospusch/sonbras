@@ -5,15 +5,21 @@ export function publicProfileData(data) {
     displayName: data.displayName,
     institution: data.institution,
     isPublic: data.isPublic,
+    ...(data.isPublic && data.publicEmail ? { publicEmail: data.publicEmail } : {}),
+    ...(data.isPublic && data.orcid ? { orcid: data.orcid } : {}),
+    ...(data.isPublic && data.lattes ? { lattes: data.lattes } : {}),
   };
 }
 export function publicObservationData(data) {
+  const defaultSiteId =
+    data.defaultSiteId || (data.siteSource === "default" ? data.siteId : "");
   return {
     eventId: data.eventId,
     eventName: data.eventName,
     dateTime: data.dateTime,
     siteName: data.siteName,
     tag: data.tag,
+    ...(defaultSiteId && { defaultSiteId }),
   };
 }
 export async function publicObservationId(id) {

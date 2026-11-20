@@ -1,10 +1,11 @@
 import { AppProvider } from "@/components/app-provider";
+import { AppToaster } from "@/components/app-toaster";
 import "@fontsource-variable/dm-sans";
 import "@fontsource-variable/manrope";
 import "./globals.css";
 export const metadata = {
   title: {
-    default: "Sonbras · Seu próximo encontro com o céu",
+    default: "Meus sítios · Sonbras",
     template: "%s · Sonbras",
   },
   description:
@@ -15,6 +16,7 @@ export default function RootLayout({ children }) {
     <html lang="pt-BR" data-scroll-behavior="smooth">
       <body>
         <AppProvider>{children}</AppProvider>
+        <AppToaster />
       </body>
     </html>
   );

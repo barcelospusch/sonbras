@@ -1,5 +1,8 @@
 import { isNighttime } from "@occjs/occjs";
-import { observationAltitude } from "./astronomy.mjs";
+import {
+  observationHorizontalCoordinates,
+  starMagnitudePerSecond,
+} from "./astronomy.mjs";
 export function filterSitePredictions(
   events,
   {
@@ -12,15 +15,24 @@ export function filterSitePredictions(
     end,
     night,
     maxMagnitude = /** @type {number | null} */ (null),
+    azimuthStart = null,
+    azimuthEnd = null,
+    maxBodyMagnitude = null,
+    maxStarMagnitudePerSecond = null,
     maxUncertaintyKm = /** @type {number | null} */ (null),
   },
 ) {
   let missingCoordinates = 0;
   const filtered = events
-    .map((event) => ({
-      ...event,
-      observationAltitude: observationAltitude(event, latitude, longitude),
-    }))
+    .map((event) => {
+      const position = observationHorizontalCoordinates(event, latitude, longitude);
+      return {
+        ...event,
+        starMagnitudePerSecond: starMagnitudePerSecond(event),
+        observationAltitude: position.altitude,
+        observationAzimuth: position.azimuth,
+      };
+    })
     .filter((event) => {
       const instant = Date.parse(event.date_time);
       if (
@@ -34,6 +46,27 @@ export function filterSitePredictions(
         return false;
       }
       if (event.observationAltitude < altitude) return false;
+      if (azimuthStart !== null || azimuthEnd !== null) {
+        const azimuth = event.observationAzimuth;
+        const start = azimuthStart ?? 0;
+        const end = azimuthEnd ?? 360;
+        const inRange = start <= end
+          ? (azimuth >= start && azimuth <= end) || (azimuth === 0 && end === 360)
+          : azimuth >= start || azimuth <= end;
+        if (!inRange) return false;
+      }
+      const bodyMagnitude = event.apparent_magnitude;
+      if (
+        maxBodyMagnitude !== null &&
+        (!Number.isFinite(bodyMagnitude) || bodyMagnitude > maxBodyMagnitude)
+      )
+        return false;
+      if (
+        maxStarMagnitudePerSecond !== null &&
+        (event.starMagnitudePerSecond === null ||
+          event.starMagnitudePerSecond > maxStarMagnitudePerSecond)
+      )
+        return false;
       if (
         duration > 0 &&
         (typeof event.event_duration !== "number" ||

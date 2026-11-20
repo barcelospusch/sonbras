@@ -13,22 +13,39 @@ service cloud.firestore {
       let projection = get(/databases/$(database)/documents/publicUsers/$(uid)).data;
       return profile.isPublic == true && projection.isPublic == true && profile.username == projection.username;
     }
+    function academicLinksMatch(projection, profile) {
+      return (!('orcid' in projection) || (projection.isPublic == true
+          && projection.orcid != '' && projection.orcid == profile.get('orcid', '')))
+        && (!('lattes' in projection) || (projection.isPublic == true
+          && projection.lattes != '' && projection.lattes == profile.get('lattes', '')));
+    }
     match /publicUsers/{uid} {
-      allow get: if owner(uid) || (resource.data.keys().hasOnly(['username','displayName','institution','isPublic'])
-        && resource.data.isPublic == true && published(uid));
+      allow get: if owner(uid) || (resource.data.keys().hasOnly(['username','displayName','institution','isPublic','publicEmail','orcid','lattes'])
+        && resource.data.isPublic == true && published(uid)
+        && academicLinksMatch(resource.data, get(/databases/$(database)/documents/users/$(uid)).data)
+        && (!('publicEmail' in resource.data)
+          || resource.data.publicEmail == get(/databases/$(database)/documents/users/$(uid)).data.get('publicEmail', '')));
       allow create, update: if manages(uid)
         && request.resource.data.keys().hasAll(['username','displayName','institution','isPublic'])
-        && request.resource.data.keys().hasOnly(['username','displayName','institution','isPublic'])
+        && request.resource.data.keys().hasOnly(['username','displayName','institution','isPublic','publicEmail','orcid','lattes'])
+        && academicLinksMatch(request.resource.data, getAfter(/databases/$(database)/documents/users/$(uid)).data)
+        && (!('publicEmail' in request.resource.data) || (request.resource.data.isPublic == true
+          && request.resource.data.publicEmail != ''
+          && request.resource.data.publicEmail == getAfter(/databases/$(database)/documents/users/$(uid)).data.get('publicEmail', '')))
         && request.resource.data.username == getAfter(/databases/$(database)/documents/users/$(uid)).data.username
         && request.resource.data.displayName == getAfter(/databases/$(database)/documents/users/$(uid)).data.displayName
         && request.resource.data.institution == getAfter(/databases/$(database)/documents/users/$(uid)).data.institution
         && request.resource.data.isPublic == getAfter(/databases/$(database)/documents/users/$(uid)).data.isPublic;
       match /observations/{id} {
-        allow read: if owner(uid) || (resource.data.keys().hasOnly(['eventId','eventName','dateTime','siteName','tag']) && published(uid));
+        allow read: if owner(uid) || (resource.data.keys().hasOnly(['eventId','eventName','dateTime','siteName','tag','defaultSiteId']) && published(uid));
         allow delete: if owner(uid);
         allow create, update: if owner(uid)
           && request.resource.data.keys().hasAll(['eventId','eventName','dateTime','siteName','tag'])
-          && request.resource.data.keys().hasOnly(['eventId','eventName','dateTime','siteName','tag'])
+          && request.resource.data.keys().hasOnly(['eventId','eventName','dateTime','siteName','tag','defaultSiteId'])
+          && (!('defaultSiteId' in request.resource.data)
+            || (request.resource.data.defaultSiteId is string
+              && request.resource.data.defaultSiteId.matches('^[A-Za-z0-9_-]{1,128}$')
+              && exists(/databases/$(database)/documents/defaultSites/$(request.resource.data.defaultSiteId))))
           && request.resource.data.eventId is string && request.resource.data.eventId.matches('^[A-Za-z0-9_-]{1,128}$')
           && request.resource.data.eventName is string && request.resource.data.eventName.size() > 0 && request.resource.data.eventName.size() <= 200
           && request.resource.data.dateTime is timestamp
@@ -38,7 +55,13 @@ service cloud.firestore {
     }
     function profileValid(d) {
       return d.keys().hasAll(['username','displayName','institution','isPublic','email','theme','updatedAt'])
-        && d.keys().hasOnly(['username','displayName','institution','isPublic','email','theme','updatedAt','isAdmin'])
+        && d.keys().hasOnly(['username','displayName','institution','isPublic','email','theme','updatedAt','isAdmin','publicEmail','orcid','lattes'])
+        && d.get('orcid', '') is string
+        && (d.get('orcid', '') == '' || d.orcid.matches('^https://orcid[.]org/[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$'))
+        && d.get('lattes', '') is string
+        && (d.get('lattes', '') == '' || d.lattes.matches('^https://lattes[.]cnpq[.]br/[0-9]{16}$'))
+        && d.get('publicEmail', '') is string && d.get('publicEmail', '').size() <= 320
+        && (d.get('publicEmail', '') == '' || d.publicEmail.matches('^[^@\\s]+@[^@\\s]+[.][^@\\s]+$'))
         && d.get('isAdmin', false) is bool
         && d.username is string && (d.username == '' || d.username.matches('^[a-z0-9][a-z0-9_-]{1,28}[a-z0-9]$'))
         && d.displayName is string && d.displayName.size() <= 100
@@ -79,10 +102,12 @@ service cloud.firestore {
       allow list: if admin();
       allow create: if owner(uid) && profileValid(request.resource.data)
         && request.resource.data.isAdmin == false
+        && request.resource.data.get('orcid', '') == '' && request.resource.data.get('lattes', '') == ''
         && request.resource.data.username == '' && request.resource.data.isPublic == false;
       allow update: if manages(uid) && profileValid(request.resource.data)
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin']) || admin())
-        && (owner(uid) || request.resource.data.email == resource.data.email)
+        && (owner(uid) || (request.resource.data.email == resource.data.email
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['publicEmail'])))
         && (request.resource.data.username != '' || request.resource.data.isPublic == false)
         && (request.resource.data.username == resource.data.username
           || (request.resource.data.username != ''

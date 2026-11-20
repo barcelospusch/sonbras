@@ -27,7 +27,7 @@ O Sonbras reúne predições de ocultações estelares do LIneA Solar System e a
 4. Abra **Minha conta** para revisar os eventos salvos e escolher o tema claro, escuro ou vermelho. A indicação **Evento passado** compara o horário da predição com o horário atual e aparece nas predições, nos detalhes do evento e nos cards salvos.
 5. Para compartilhar suas marcações, defina um nome de usuário, ative o perfil público e salve. O botão **Copiar link** fica disponível nas configurações da conta e na página do perfil público.
 
-O código usa Next.js App Router, React, Firebase Auth, Cloud Firestore e occjs 0.3.1.
+O código usa Next.js App Router, React, Firebase Auth, Cloud Firestore e `@occjs/occjs`.
 
 ## Executar
 
@@ -112,7 +112,7 @@ usernames/{username}
   uid: string
 ```
 
-O titular pode ler seus dados privados. Administradores também podem consultar perfis e sítios cadastrados. As cópias em `publicUsers` excluem e-mail, tema, coordenadas e identificador do sítio. O UID identifica o perfil público; os IDs das marcações públicas são hashes. Desativar `isPublic` ou mudar o nome de usuário bloqueia o acesso público antigo pelas regras, mesmo antes da próxima sincronização.
+O titular pode ler seus dados privados. Administradores também podem consultar perfis e sítios cadastrados. O perfil público pode incluir o e-mail de contato opcional informado em **Minha conta**. E-mail de autenticação, tema, coordenadas e identificadores de sítios pessoais ficam fora das cópias em `publicUsers`. Marcações de sítios padrão podem incluir o identificador público do sítio para abrir o evento com o contexto da observação. O UID identifica o perfil público e os IDs das marcações públicas são hashes. Desativar `isPublic` ou mudar o nome de usuário bloqueia o acesso público antigo pelas regras, mesmo antes da próxima sincronização.
 
 O nome de usuário tem de 3 a 30 caracteres: letras minúsculas, números, hífen ou sublinhado, com início e fim alfanuméricos. Perfil e reserva do nome são gravados em uma transação. Ao trocar o nome, a reserva anterior é liberada.
 
@@ -153,6 +153,9 @@ A rota `/api/predictions` usa o occjs com paginação completa (`limit: 'all'`) 
 `PrecisePrediction` adapta o transporte do occjs e usa `lossless-json` para preservar os dígitos de identificadores Gaia grandes. A paginação e os aliases dos parâmetros continuam sob responsabilidade da biblioteca. Revise os testes ao atualizar o SDK.
 
 ## Detalhes, sombra e cache
+
+O mapa global da predição aparece no cabeçalho do evento. Na lista do sítio,
+cada evento exibe uma miniatura com a trajetória da sombra.
 
 A página do evento oferece os dados da predição, marcações por sítio e acesso à página oficial no LIneA. As cores da faixa da sombra usam as trajetórias retornadas por `getOccultationPaths`:
 

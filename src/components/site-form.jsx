@@ -1,6 +1,7 @@
 "use client";
 import { saveSite, removeSite } from "@/lib/repositories/sites";
 import {
+  BroadcastIcon,
   CrosshairIcon,
   FloppyDiskIcon,
   MapPinIcon,
@@ -82,7 +83,7 @@ export function SiteForm({ site, ownerUid, onClose }) {
     >
       <dialog
         open
-        className="modal"
+        className={ownerUid ? "modal admin-site-modal" : "modal"}
         aria-labelledby="site-form-title"
         onCancel={(event) => {
           event.preventDefault();
@@ -103,10 +104,11 @@ export function SiteForm({ site, ownerUid, onClose }) {
           </button>
         </div>
         <h2 id="site-form-title">
-          {site ? "Editar sítio" : "Um novo ponto de observação"}
+          {ownerUid && site ? "Configurações do sítio" : site ? "Editar sítio" : "Um novo ponto de observação"}
         </h2>
-        <p className="muted">Defina de onde você vai observar o céu.</p>
+        <p className="muted">{ownerUid && site ? site.name : "Defina de onde você vai observar o céu."}</p>
         <form onSubmit={save}>
+          {ownerUid && <h3 className="admin-modal-section"><MapPinIcon size={19} weight="duotone" aria-hidden="true" /> Localização</h3>}
           <label>
             Nome do sítio
             <input
@@ -157,6 +159,7 @@ export function SiteForm({ site, ownerUid, onClose }) {
           >
             <CrosshairIcon size={17} /> Usar minha localização
           </button>
+          {ownerUid && <h3 className="admin-modal-section"><BroadcastIcon size={19} weight="duotone" aria-hidden="true" /> Filtros de observação</h3>}
           <div className="form-grid">
             <label>
               Raio de busca (km)

@@ -16,6 +16,7 @@ import {
   userRef,
   usernameRef,
   observationsRef,
+  defaultSitesRef,
   publicProfileRef,
   publicObservationsRef,
   publicObservationRef,
@@ -50,10 +51,18 @@ export async function syncPublicProfile(uid, data) {
 
 // Backfill legacy accounts and avoid rewriting projections that are already current.
 export async function syncPublicObservations(uid, observations) {
+  const defaultIds = observations.some(({ data }) => data.siteSource === "default")
+    ? new Set((await getDocsFromServer(defaultSitesRef())).docs.map((site) => site.id))
+    : new Set();
   const entries = await Promise.all(
     observations.map(async (observation) => ({
       id: await publicObservationId(observation.id),
-      data: publicObservationData(observation.data),
+      data: publicObservationData({
+        ...observation.data,
+        siteSource: defaultIds.has(observation.data.siteId)
+          ? observation.data.siteSource
+          : undefined,
+      }),
     })),
   );
   const existing = await getDocsFromServer(publicObservationsRef(uid));
@@ -67,9 +76,11 @@ export async function syncPublicObservations(uid, observations) {
       .filter((entry) => !ids.has(entry.id))
       .map((entry) => ({ id: entry.id, data: null })),
   ];
-  for (let index = 0; index < operations.length; index += 400) {
+  // Firestore permits up to 20 document lookups per batch in security rules.
+  const batchSize = operations.some(({ data }) => data?.defaultSiteId) ? 20 : 400;
+  for (let index = 0; index < operations.length; index += batchSize) {
     const batch = writeBatch(getDatabase());
-    for (const operation of operations.slice(index, index + 400)) {
+    for (const operation of operations.slice(index, index + batchSize)) {
       const ref = publicObservationRef(uid, operation.id);
       if (operation.data) batch.set(ref, operation.data);
       else batch.delete(ref);

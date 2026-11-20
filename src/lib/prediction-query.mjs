@@ -5,13 +5,17 @@ export function predictionSearchParams(site, filters) {
     latitude: String(site.latitude),
     longitude: String(site.longitude),
     radius: String(site.radiusKm),
-    altitude: String(site.minObservationAltitude),
+    altitude: filters.altitude || String(site.minObservationAltitude),
     start: `${filters.start}T00:00:00Z`,
     end: `${filters.end}T23:59:59.999Z`,
     duration: filters.duration,
     drop: filters.drop,
     maxMagnitude: filters.maxMagnitude,
     maxUncertaintyKm: filters.maxUncertaintyKm,
+    azimuthStart: filters.azimuthStart ?? "",
+    azimuthEnd: filters.azimuthEnd ?? "",
+    maxBodyMagnitude: filters.maxBodyMagnitude ?? "",
+    maxStarMagnitudePerSecond: filters.maxStarMagnitudePerSecond ?? "",
     night: String(filters.night),
   });
 }
@@ -24,10 +28,16 @@ export function parsePredictionQuery(p) {
     altitude = Number(p.get("altitude"));
   const duration = Number(p.get("duration") || 0),
     drop = Number(p.get("drop") || 0);
-  const magnitudeValue = p.get("maxMagnitude")?.trim();
-  const maxMagnitude = magnitudeValue ? Number(magnitudeValue) : null;
-  const uncertaintyValue = p.get("maxUncertaintyKm")?.trim();
-  const maxUncertaintyKm = uncertaintyValue ? Number(uncertaintyValue) : null;
+  const optionalNumber = (key) => {
+    const value = p.get(key)?.trim();
+    return value ? Number(value) : null;
+  };
+  const maxMagnitude = optionalNumber("maxMagnitude");
+  const maxUncertaintyKm = optionalNumber("maxUncertaintyKm");
+  const azimuthStart = optionalNumber("azimuthStart");
+  const azimuthEnd = optionalNumber("azimuthEnd");
+  const maxBodyMagnitude = optionalNumber("maxBodyMagnitude");
+  const maxStarMagnitudePerSecond = optionalNumber("maxStarMagnitudePerSecond");
   const start = p.get("start") || "",
     end = p.get("end") || "";
   const span = Date.parse(end) - Date.parse(start);
@@ -38,7 +48,12 @@ export function parsePredictionQuery(p) {
     ![latitude, longitude, radius, altitude, duration, drop, span].every(
       Number.isFinite,
     ) ||
-    (maxMagnitude !== null && !Number.isFinite(maxMagnitude)) ||
+    [maxMagnitude, maxBodyMagnitude, maxStarMagnitudePerSecond].some(
+      (value) => value !== null && !Number.isFinite(value),
+    ) ||
+    [azimuthStart, azimuthEnd].some(
+      (value) => value !== null && (!Number.isFinite(value) || value < 0 || value > 360),
+    ) ||
     (maxUncertaintyKm !== null &&
       (!Number.isFinite(maxUncertaintyKm) || maxUncertaintyKm < 0)) ||
     Math.abs(latitude) > 90 ||
@@ -67,6 +82,10 @@ export function parsePredictionQuery(p) {
     end,
     maxMagnitude,
     maxUncertaintyKm,
+    azimuthStart,
+    azimuthEnd,
+    maxBodyMagnitude,
+    maxStarMagnitudePerSecond,
     includeWeather: p.get("includeWeather") === "true",
     night: p.get("night") !== "false",
   };

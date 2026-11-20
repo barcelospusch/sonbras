@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { useApp } from "@/components/app-provider";
 import { CopyProfileLink } from "@/components/copy-profile-link";
 import { ObservationList } from "@/components/observation-list";
@@ -30,6 +31,9 @@ export default function AccountPage() {
   const [values, setValues] = useState({
     displayName: "",
     institution: "",
+    orcid: "",
+    lattes: "",
+    publicEmail: "",
     username: "",
     isPublic: false,
   });
@@ -40,18 +44,23 @@ export default function AccountPage() {
   const [emailBusy, setEmailBusy] = useState(false),
     [emailError, setEmailError] = useState(""),
     [emailNotice, setEmailNotice] = useState("");
-  const [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   useEffect(() => {
     setValues({
       displayName: profile.displayName || user?.displayName || "",
       institution: profile.institution,
+      orcid: profile.orcid ?? "",
+      lattes: profile.lattes ?? "",
+      publicEmail: profile.publicEmail ?? "",
       username: profile.username,
       isPublic: profile.isPublic,
     });
   }, [
     profile.displayName,
     profile.institution,
+    profile.orcid,
+    profile.lattes,
+    profile.publicEmail,
     profile.username,
     profile.isPublic,
     user?.displayName,
@@ -64,7 +73,6 @@ export default function AccountPage() {
     if (!user || !auth?.currentUser) return;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
       const data = await persistProfile(user.uid, values);
       try {
@@ -72,10 +80,11 @@ export default function AccountPage() {
           displayName: data.displayName,
         });
         await refreshUser();
-        setNotice("Perfil salvo.");
+        toast.success("Perfil salvo.", { id: "save-profile" });
       } catch {
-        setNotice(
+        toast.success(
           "Perfil salvo no Sonbras. O nome de exibição no login será sincronizado quando você entrar novamente.",
+          { id: "save-profile" },
         );
       }
     } catch (e) {
@@ -174,11 +183,6 @@ export default function AccountPage() {
               {error || profileError}
             </p>
           )}
-          {notice && (
-            <p className="notice" role="status">
-              {notice}
-            </p>
-          )}
           <div className="account-grid">
             <section className="detail-panel">
               <h2>Perfil do observador</h2>
@@ -231,6 +235,26 @@ export default function AccountPage() {
                     }
                   />
                 </label>
+                <label>
+                  ORCID (opcional)
+                  <input
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="ID ou link do ORCID"
+                    value={values.orcid}
+                    onChange={(e) => setValues((v) => ({ ...v, orcid: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Currículo Lattes (opcional)
+                  <input
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="ID ou link direto do currículo"
+                    value={values.lattes}
+                    onChange={(e) => setValues((v) => ({ ...v, lattes: e.target.value }))}
+                  />
+                </label>
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
@@ -242,10 +266,22 @@ export default function AccountPage() {
                   Ativar meu perfil público
                 </label>
                 <p className="field-hint">
-                  Ao ativar, seu nome, instituição, tags e nomes dos sítios
-                  marcados ficam visíveis no link compartilhado. Seu e-mail e as
-                  coordenadas dos sítios permanecem privados.
+                  Ao ativar, seu nome, instituição, ORCID, Lattes, tags e nomes
+                  dos sítios marcados ficam visíveis no link compartilhado.
                 </p>
+                {values.isPublic && (
+                  <label>
+                    E-mail público de contato (opcional)
+                    <input
+                      type="email"
+                      maxLength={320}
+                      autoComplete="email"
+                      value={values.publicEmail}
+                      onChange={(e) => setValues((v) => ({ ...v, publicEmail: e.target.value }))}
+                    />
+                    <span className="muted">Qualquer visitante do perfil poderá ver esse endereço.</span>
+                  </label>
+                )}
                 <button className="button" disabled={busy || !!profileError}>
                   <FloppyDiskIcon weight="duotone" size={18} />
                   {busy ? "Salvando…" : "Salvar perfil"}

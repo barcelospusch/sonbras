@@ -92,3 +92,46 @@ test("search cancellation reaches the transport", async (t) => {
     { name: "AbortError" },
   );
 });
+
+test("azimuth accepts a range across north and rejects out-of-range bounds", () => {
+  const params = query();
+  params.set("azimuthStart", "350");
+  params.set("azimuthEnd", "20");
+  const filters = parsePredictionQuery(params);
+  const event = {
+    date_time: "2026-10-20T12:00:00Z",
+    ra_star_candidate: 0,
+  };
+  const events = [90, -90].map((declination) => ({
+    ...event,
+    dec_star_candidate: declination,
+  }));
+  const matches = filterSitePredictions(events, { ...filters, altitude: -90 }).events;
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].observationAzimuth, 0);
+  params.set("azimuthEnd", "361");
+  assert.throws(() => parsePredictionQuery(params));
+});
+
+test("body limit uses apparent magnitude and the displayed ratio uses stellar G", () => {
+  const filters = { ...parsePredictionQuery(query()), altitude: -90 };
+  const event = {
+    date_time: "2026-10-20T12:00:00Z",
+    ra_star_candidate: 0,
+    dec_star_candidate: 90,
+  };
+  const events = [[9, 10, 5], [1, 10, 2], [15, 10, 10], [8, null, 5], [8, 10, 0]]
+    .map(([apparent_magnitude, g_star, event_duration], id) => ({
+      ...event, id, apparent_magnitude, g_star, event_duration,
+    }));
+  assert.deepEqual(
+    filterSitePredictions(events, filters).events.map((event) => event.starMagnitudePerSecond),
+    [2, 5, 1, null, null],
+  );
+  const result = filterSitePredictions(events, {
+    ...filters,
+    maxBodyMagnitude: 10,
+    maxStarMagnitudePerSecond: 2,
+  });
+  assert.deepEqual(result.events.map(({ id }) => id), [0]);
+});

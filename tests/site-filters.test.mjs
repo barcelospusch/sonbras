@@ -9,6 +9,11 @@ import {
 const defaults = {
   start: "2026-10-20",
   end: "2026-10-27",
+  altitude: "20",
+  azimuthStart: "",
+  azimuthEnd: "",
+  maxBodyMagnitude: "",
+  maxStarMagnitudePerSecond: "",
   duration: "0",
   drop: "0",
   maxMagnitude: "",
@@ -21,6 +26,11 @@ test("site filter URLs restore all fields, including zero and disabled nighttime
     ...defaults,
     start: "2026-11-01",
     end: "2026-11-03",
+    altitude: "0",
+    azimuthStart: "350",
+    azimuthEnd: "20",
+    maxBodyMagnitude: "0",
+    maxStarMagnitudePerSecond: "1.25",
     duration: "1.5",
     drop: "2",
     maxMagnitude: "0",
@@ -46,6 +56,11 @@ test("site filter URLs restore all fields, including zero and disabled nighttime
     restored,
   );
   const query = parsePredictionQuery(request);
+  assert.equal(query.altitude, 0);
+  assert.equal(query.azimuthStart, 350);
+  assert.equal(query.azimuthEnd, 20);
+  assert.equal(query.maxBodyMagnitude, 0);
+  assert.equal(query.maxStarMagnitudePerSecond, 1.25);
   assert.equal(query.maxMagnitude, 0);
   assert.equal(query.night, false);
   assert.equal(query.duration, 1.5);
@@ -78,4 +93,10 @@ test("invalid URL values fall back safely while empty form drafts remain editabl
     draft,
   );
   assert.deepEqual(readSiteFilters(new URLSearchParams(), defaults), defaults);
+});
+
+test("the configured altitude stays the default when the site changes", () => {
+  const params = writeSiteFilters(new URLSearchParams(), defaults, defaults);
+  assert.equal(params.has("altitude"), false);
+  assert.equal(readSiteFilters(params, { ...defaults, altitude: "35" }).altitude, "35");
 });

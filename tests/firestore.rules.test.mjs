@@ -104,11 +104,15 @@ test(
         displayName: "Updated",
         institution: "",
         isPublic: true,
+        orcid: "https://orcid.org/0000-0002-1825-0097",
+        lattes: "https://lattes.cnpq.br/1234567890123456",
       };
       await assertSucceeds(
         runTransaction(owner, async (tx) => {
           tx.update(doc(owner, "users", "owner"), {
             isPublic: true,
+            orcid: publicProfile.orcid,
+            lattes: publicProfile.lattes,
             updatedAt: serverTimestamp(),
           });
           tx.set(doc(owner, "publicUsers", "owner"), publicProfile);
@@ -140,6 +144,33 @@ test(
           email: "leak@example.com",
         }),
       );
+      const publicEmail = "contact@example.com";
+      await assertFails(
+        setDoc(doc(owner, "publicUsers", "owner"), { ...publicProfile, publicEmail }),
+      );
+      await assertSucceeds(
+        runTransaction(owner, async (tx) => {
+          tx.update(doc(owner, "users", "owner"), {
+            publicEmail,
+            updatedAt: serverTimestamp(),
+          });
+          tx.set(doc(owner, "publicUsers", "owner"), { ...publicProfile, publicEmail });
+        }),
+      );
+      const contact = await assertSucceeds(getDoc(doc(anonymous, "publicUsers", "owner")));
+      assert.equal(contact.data().publicEmail, publicEmail);
+      assert.equal(contact.data().email, undefined);
+      await assertSucceeds(
+        runTransaction(owner, async (tx) => {
+          tx.update(doc(owner, "users", "owner"), {
+            publicEmail: "",
+            updatedAt: serverTimestamp(),
+          });
+          tx.set(doc(owner, "publicUsers", "owner"), publicProfile);
+        }),
+      );
+      const withdrawn = await assertSucceeds(getDoc(doc(anonymous, "publicUsers", "owner")));
+      assert.equal(withdrawn.data().publicEmail, undefined);
       await assertFails(
         setDoc(doc(owner, "publicUsers", "owner", "observations", "leak"), {
           ...observation,
@@ -294,6 +325,17 @@ test(
       const publishedMarks = ownWithDefault.observations.filter((mark) => mark.eventId === event.id);
       assert.equal(publishedMarks.length, 2);
       assert.ok(publishedMarks.every((mark) => !("siteSource" in mark) && !("siteId" in mark)));
+      assert.deepEqual(
+        publishedMarks.flatMap((mark) => mark.defaultSiteId ? [mark.defaultSiteId] : []),
+        [defaultSite.id],
+      );
+      const publicMarks = await assertSucceeds(
+        getDocs(collection(anonymous, "publicUsers", "owner", "observations")),
+      );
+      assert.deepEqual(
+        publicMarks.docs.map((mark) => mark.data().defaultSiteId).filter(Boolean),
+        [defaultSite.id],
+      );
       await removeObservation("owner", { id: defaultObservationId });
       assert.equal((await getDoc(defaultMarkRef)).exists(), false);
       const observationId = `event-web~${site.id}`;

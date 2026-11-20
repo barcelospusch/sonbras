@@ -93,6 +93,17 @@ test("public synchronization skips identical documents and removes unexpected fi
 });
 
 test("public projections exclude email, preferences, coordinates and site IDs", async () => {
+  const contact = {
+    publicEmail: "contact@example.com",
+    email: "private@example.com",
+    orcid: "https://orcid.org/0000-0002-1825-0097",
+    lattes: "https://lattes.cnpq.br/1234567890123456",
+  };
+  for (const field of ["publicEmail", "orcid", "lattes"]) {
+    assert.equal(publicProfileData({ ...contact, isPublic: true })[field], contact[field]);
+    assert.equal(publicProfileData({ ...contact, isPublic: false })[field], undefined);
+    assert.equal(publicProfileData({ isPublic: true, [field]: "" })[field], undefined);
+  }
   assert.deepEqual(
     publicProfileData({
       username: "observer",

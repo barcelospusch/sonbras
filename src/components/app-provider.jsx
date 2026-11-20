@@ -9,6 +9,7 @@ const AppContext = createContext({
   user: null,
   sites: [],
   observations: [],
+  observationsReady: false,
   defaultSites: [],
   defaultSitesLoading: false,
   defaultSitesError: "",
@@ -28,6 +29,7 @@ export function AppProvider({ children }) {
   const [, bumpSession] = useState(0);
   const [sites, setSites] = useState([]),
     [observations, setObservations] = useState([]);
+  const [observationsReady, setObservationsReady] = useState(false);
   const [profile, setProfile] = useState(defaultProfile);
   const [defaultSites, setDefaultSites] = useState([]);
   const [defaultSitesLoading, setDefaultSitesLoading] = useState(firebaseConfigured);
@@ -63,6 +65,7 @@ export function AppProvider({ children }) {
       (u) => {
         setSites([]);
         setObservations([]);
+        setObservationsReady(false);
         setError("");
         setProfileError("");
         setProfile(defaultProfile);
@@ -83,6 +86,7 @@ export function AppProvider({ children }) {
     return subscribeUserData(user, {
       setSites,
       setObservations,
+      setObservationsReady,
       setProfile,
       applyTheme,
       setSitesLoading,
@@ -102,6 +106,7 @@ export function AppProvider({ children }) {
         user,
         sites,
         observations,
+        observationsReady,
         defaultSites,
         defaultSitesLoading,
         defaultSitesError,

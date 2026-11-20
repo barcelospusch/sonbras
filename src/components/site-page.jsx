@@ -3,16 +3,20 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { use, useEffect, useRef, useState } from "react";
 import {
+  AngleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   CalendarBlankIcon,
   ClockIcon,
+  ShootingStarIcon,
   CrosshairIcon,
   FunnelSimpleIcon,
+  GlobeHemisphereWestIcon,
   MapPinIcon,
   PencilSimpleIcon,
   BroadcastIcon,
   BinocularsIcon,
+  TrendDownIcon,
 } from "@phosphor-icons/react";
 import { EventPastBadge } from "@/components/event-past-badge";
 import { ShadowDot, ShadowLegend } from "@/components/shadow-dot";
@@ -25,6 +29,11 @@ import { eventId } from "@/lib/observations.mjs";
 import { readSiteFilters, writeSiteFilters } from "@/lib/site-filters.mjs";
 import { predictionSearchParams } from "@/lib/prediction-query.mjs";
 const numericFilters = [
+  { name: "altitude", label: "Altura mínima (°)", min: 0, max: 90, required: true },
+  { name: "azimuthStart", label: "Azimute inicial (°)", min: 0, max: 360 },
+  { name: "azimuthEnd", label: "Azimute final (°)", min: 0, max: 360 },
+  { name: "maxBodyMagnitude", label: "Magnitude máxima do corpo" },
+  { name: "maxStarMagnitudePerSecond", label: "Magnitude G da estrela por segundo (máx.)" },
   { name: "duration", label: "Duração mínima (s)", min: 0, required: true },
   { name: "drop", label: "Queda mínima de magnitude", min: 0, required: true },
   { name: "maxMagnitude", label: "Magnitude máxima da estrela (G)" },
@@ -36,6 +45,27 @@ const numericFilters = [
 ];
 const day = (offset) =>
   new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+
+function EventMapThumbnail({ id }) {
+  const [unavailable, setUnavailable] = useState(false);
+  return (
+    <span className="event-map-thumbnail">
+      {unavailable ? (
+        <GlobeHemisphereWestIcon size={24} weight="duotone" aria-hidden="true" />
+      ) : (
+        <img
+          src={`/api/events/${encodeURIComponent(id)}?map=thumbnail`}
+          alt="Mapa global da predição"
+          width={72}
+          height={72}
+          loading="lazy"
+          decoding="async"
+          onError={() => setUnavailable(true)}
+        />
+      )}
+    </span>
+  );
+}
 export function SitePage({ params, publicSite = false }) {
   const { id } = use(params);
   const app = useApp();
@@ -89,7 +119,7 @@ export function SitePage({ params, publicSite = false }) {
                 <BroadcastIcon size={17} weight="duotone" />{" "}
                 {number(site.radiusKm, 0)} km{" "}
                 <span className="separator">/</span>
-                <BinocularsIcon size={17} weight="duotone" /> Altitude ≥{" "}
+                <AngleIcon size={17} weight="duotone" /> Altitude ≥{" "}
                 {number(site.minObservationAltitude)}°
               </p>
             </div>
@@ -116,6 +146,7 @@ function Predictions({ site, publicSite }) {
   const [defaults] = useState({
     start: day(0),
     end: day(7),
+    altitude: String(site.minObservationAltitude),
     duration: "0",
     drop: "0",
     maxMagnitude: "",
@@ -129,7 +160,7 @@ function Predictions({ site, publicSite }) {
   const editingUrl = useRef(false);
   function updateUrl(next, push = false) {
     const url = new URL(window.location.href);
-    url.search = writeSiteFilters(url.searchParams, next).toString();
+    url.search = writeSiteFilters(url.searchParams, next, defaults).toString();
     if (url.href !== window.location.href) {
       if (push) window.history.pushState(null, "", url);
       else window.history.replaceState(null, "", url);
@@ -239,6 +270,7 @@ function Predictions({ site, publicSite }) {
                     <input
                       type="number"
                       min={field.min}
+                      max={field.max}
                       step="any"
                       required={field.required}
                       placeholder={field.required ? undefined : "Sem limite"}
@@ -254,8 +286,12 @@ function Predictions({ site, publicSite }) {
                 ))}
               </div>
               <p className="field-hint">
-                Magnitudes menores indicam estrelas mais brilhantes. Ao limitar a incerteza,
-                a busca exclui predições sem esse dado.
+                O azimute parte do norte e aumenta no sentido horário. Para cruzar o norte,
+                use um início maior que o fim (350° a 20°, por exemplo).
+              </p>
+              <p className="field-hint">
+                A relação divide a magnitude G da estrela pela duração prevista do evento em segundos.
+                Os limites de magnitude do corpo, relação e incerteza exigem que a predição tenha os dados correspondentes.
               </p>
             </fieldset>
           </div>
@@ -316,7 +352,7 @@ function Predictions({ site, publicSite }) {
               : "Prepare sua busca"}
           </h3>
           <p>
-            Amplie o período ou ajuste a duração mínima e a queda de magnitude.
+            Amplie o período ou ajuste os filtros de predição.
           </p>
         </div>
       ) : (
@@ -328,37 +364,37 @@ function Predictions({ site, publicSite }) {
                 key={eventId(event)}
                 href={`/events/${encodeURIComponent(eventId(event))}?${publicSite ? "defaultSite" : "site"}=${encodeURIComponent(site.id)}`}
               >
-                <ShadowDot
-                  id={eventId(event)}
-                  latitude={site.latitude}
-                  longitude={site.longitude}
-                />
-                <span className="event-orb">
-                  <span />
-                </span>
-                <div className="event-name">
-                  <span className="eyebrow">OCULTAÇÃO ESTELAR</span>
-                  <h3>{event.name || event.principal_designation}</h3>
-                  {observations
-                    .filter(
-                      (o) =>
-                        o.eventId === eventId(event) &&
-                        o.siteId === site.id &&
-                        (o.siteSource === "default") === publicSite,
-                    )
-                    .map((o) => (
-                      <span
-                        key={o.id}
-                        className={`observation-tag tag-${o.tag}`}
-                      >
-                        {tagLabels[o.tag]}
-                      </span>
-                    ))}
-                  <EventPastBadge dateTime={event.date_time} />
-                  <span>
-                    <CalendarBlankIcon size={14} weight="duotone" />
-                    {utcDate(event.date_time)} UTC
-                  </span>
+                <div className="event-row-identity">
+                  <ShadowDot
+                    id={eventId(event)}
+                    latitude={site.latitude}
+                    longitude={site.longitude}
+                  />
+                  <EventMapThumbnail id={eventId(event)} />
+                  <div className="event-name">
+                    <span className="eyebrow">OCULTAÇÃO ESTELAR</span>
+                    <h3>{event.name || event.principal_designation}</h3>
+                    {observations
+                      .filter(
+                        (o) =>
+                          o.eventId === eventId(event) &&
+                          o.siteId === site.id &&
+                          (o.siteSource === "default") === publicSite,
+                      )
+                      .map((o) => (
+                        <span
+                          key={o.id}
+                          className={`observation-tag tag-${o.tag}`}
+                        >
+                          {tagLabels[o.tag]}
+                        </span>
+                      ))}
+                    <EventPastBadge dateTime={event.date_time} />
+                    <span>
+                      <CalendarBlankIcon size={14} weight="duotone" />
+                      {utcDate(event.date_time)} UTC
+                    </span>
+                  </div>
                 </div>
                 <div className="event-metric">
                   <span>Duração</span>
@@ -369,11 +405,16 @@ function Predictions({ site, publicSite }) {
                 </div>
                 <div className="event-metric">
                   <span>Mag drop</span>
-                  <strong>{number(event.magnitude_drop, 2)} mag</strong>
+                  <strong>
+                    <TrendDownIcon size={16} weight="duotone" aria-hidden="true" />
+                    {number(event.magnitude_drop, 2)} mag</strong>
                 </div>
                 <div className="event-metric">
-                  <span>Altitude</span>
-                  <strong>{number(event.observationAltitude)}°</strong>
+                  <span>Alt. / Az.</span>
+                  <strong>
+                    <AngleIcon size={16} weight="duotone" aria-hidden="true" />
+                    {number(event.observationAltitude)}° / {number(event.observationAzimuth)}°
+                  </strong>
                 </div>
                 <div className="event-metric">
                   <span>Mag estrela (G)</span>
@@ -382,6 +423,15 @@ function Predictions({ site, publicSite }) {
                 <div className="event-metric">
                   <span>Mag objeto</span>
                   <strong>{number(event.apparent_magnitude, 2)} mag</strong>
+                </div>
+                <div className="event-metric">
+                  <span>Mag G / duração</span>
+                  <strong>
+                    <ShootingStarIcon size={16} weight="duotone" aria-hidden="true" />
+                    {Number.isFinite(event.starMagnitudePerSecond)
+                      ? `${number(event.starMagnitudePerSecond, 3)} mag/s`
+                      : "—"}
+                  </strong>
                 </div>
                 <ArrowRightIcon className="event-arrow" size={21} />
               </Link>

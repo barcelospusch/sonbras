@@ -1,5 +1,14 @@
+const optionalFilters = [
+  "maxMagnitude",
+  "maxUncertaintyKm",
+  "azimuthStart",
+  "azimuthEnd",
+  "maxBodyMagnitude",
+  "maxStarMagnitudePerSecond",
+];
+
 /** @param {URLSearchParams} params
- * @param {{start:string,end:string,duration:string,drop:string,maxMagnitude:string,maxUncertaintyKm:string,night:boolean}} defaults
+ * @param {{start:string,end:string,altitude:string,duration:string,drop:string,maxMagnitude:string,maxUncertaintyKm:string,night:boolean}} defaults
  */
 export function readSiteFilters(params, defaults) {
   /** @param {string} key @param {string} fallback */
@@ -28,6 +37,11 @@ export function readSiteFilters(params, defaults) {
     end: date("endDate", defaults.end),
     duration: numeric("duration", defaults.duration),
     drop: numeric("drop", defaults.drop),
+    altitude: numeric("altitude", defaults.altitude),
+    azimuthStart: numeric("azimuthStart", ""),
+    azimuthEnd: numeric("azimuthEnd", ""),
+    maxBodyMagnitude: numeric("maxBodyMagnitude", ""),
+    maxStarMagnitudePerSecond: numeric("maxStarMagnitudePerSecond", ""),
     maxMagnitude: numeric("maxMagnitude", defaults.maxMagnitude),
     maxUncertaintyKm: numeric("maxUncertaintyKm", defaults.maxUncertaintyKm),
     night: params.has("night")
@@ -38,16 +52,20 @@ export function readSiteFilters(params, defaults) {
 
 /** @param {URLSearchParams} params
  * @param {ReturnType<typeof readSiteFilters>} filters
+ * @param {{altitude:string}} [defaults]
  */
-export function writeSiteFilters(params, filters) {
+export function writeSiteFilters(params, filters, defaults) {
   const next = new URLSearchParams(params);
   next.set("startDate", filters.start);
   next.set("endDate", filters.end);
   next.set("duration", filters.duration);
   next.set("drop", filters.drop);
   next.set("night", String(filters.night));
-  for (const key of ["maxMagnitude", "maxUncertaintyKm"]) {
-    if (filters[key] === "") next.delete(key);
+  next.delete("maxBodyMagnitudePerSecond");
+  if (filters.altitude === defaults?.altitude) next.delete("altitude");
+  else next.set("altitude", filters.altitude);
+  for (const key of optionalFilters) {
+    if (!filters[key]) next.delete(key);
     else next.set(key, filters[key]);
   }
   return next;

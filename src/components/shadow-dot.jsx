@@ -6,6 +6,12 @@ const labels = {
   outside: "Fora da faixa de 1σ",
   unknown: "Classificação indisponível",
 };
+const compactLabels = {
+  shadow: "Na sombra",
+  sigma: "Dentro de 1σ",
+  outside: "Fora de 1σ",
+  unknown: "Sem dados",
+};
 export function ShadowDot({ id, latitude, longitude, showLabel = false }) {
   const [status, setStatus] = useState("unknown"),
     [loading, setLoading] = useState(true);
@@ -39,7 +45,7 @@ export function ShadowDot({ id, latitude, longitude, showLabel = false }) {
   return showLabel ? (
     <span className="shadow-indicator">
       {dot}
-      <span>{label}</span>
+      <span>{showLabel === "compact" ? (loading ? "Calculando…" : compactLabels[status]) : label}</span>
     </span>
   ) : (
     dot

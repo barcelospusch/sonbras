@@ -5,6 +5,7 @@ import {
   CalendarBlankIcon,
   MapPinIcon,
   TrashIcon,
+  UserIcon,
 } from "@phosphor-icons/react";
 import { EventPastBadge } from "./event-past-badge";
 import { useApp } from "./app-provider";
@@ -16,14 +17,20 @@ export function ObservationIdentity({ siteName, observer, fallbackName }) {
   const { name, href } = observerIdentity(observer, fallbackName);
   return (
     <span className="observation-identity">
-      {siteName} -{" "}
-      {href ? (
-        <Link href={href} className="observer-link">
-          {name}
-        </Link>
-      ) : (
-        <span>{name}</span>
-      )}
+      <span>
+        <MapPinIcon size={16} weight="duotone" aria-hidden="true" />
+        <span>{siteName}</span>
+      </span>
+      <span>
+        <UserIcon size={16} weight="duotone" aria-hidden="true" />
+        {href ? (
+          <Link href={href} className="observer-link">
+            {name}
+          </Link>
+        ) : (
+          <span>{name}</span>
+        )}
+      </span>
     </span>
   );
 }
@@ -48,8 +55,10 @@ export function ObservationList({ observations, own = false, observer }) {
         </p>
       )}
       {observations.map((o) => {
-        const siteId = own ? o.siteId : "";
-        const siteParam = o.siteSource === "default" ? "defaultSite" : "site";
+        const defaultSiteId =
+          o.defaultSiteId || (o.siteSource === "default" ? o.siteId : "");
+        const siteId = defaultSiteId || (own ? o.siteId : "");
+        const siteParam = defaultSiteId ? "defaultSite" : "site";
         return (
           <div
             className={`observation-item ${own ? "with-actions" : ""}`}
@@ -70,14 +79,11 @@ export function ObservationList({ observations, own = false, observer }) {
                   {utcDate(o.dateTime)} UTC
                 </p>
               </Link>
-              <span>
-                <MapPinIcon size={18} weight="duotone" />
-                <ObservationIdentity
-                  siteName={o.siteName}
-                  observer={observedBy}
-                  fallbackName={own ? user?.displayName : undefined}
-                />
-              </span>
+              <ObservationIdentity
+                siteName={o.siteName}
+                observer={observedBy}
+                fallbackName={own ? user?.displayName : undefined}
+              />
             </div>
             {own && user && (
               <button

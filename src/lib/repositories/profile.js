@@ -11,7 +11,10 @@ import { publicProfileData } from "../public-data.mjs";
 export const defaultProfile = {
   displayName: "",
   email: "",
+  publicEmail: "",
   institution: "",
+  orcid: "",
+  lattes: "",
   username: "",
   theme: "dark",
   isPublic: false,
@@ -33,6 +36,31 @@ export function profileInput(values, administrative = false) {
     throw new Error("Informe seu nome com até 100 caracteres.");
   if (input.institution.length > 150)
     throw new Error("Informe a instituição com até 150 caracteres.");
+  if (values.orcid !== undefined) {
+    const id = String(values.orcid ?? "").trim()
+      .replace(/^(?:https?:\/\/)?orcid\.org\//i, "")
+      .toUpperCase();
+    if (id && !/^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$/.test(id))
+      throw new Error("Informe um ORCID no formato 0000-0000-0000-0000 ou cole o link do ORCID.");
+    input.orcid = id ? `https://orcid.org/${id}` : "";
+  }
+  if (values.lattes !== undefined) {
+    const id = String(values.lattes ?? "").trim()
+      .replace(/^(?:https?:\/\/)?lattes\.cnpq\.br\//i, "");
+    if (id && !/^[0-9]{16}$/.test(id))
+      throw new Error("Informe o ID Lattes de 16 dígitos ou cole o link direto do currículo.");
+    input.lattes = id ? `https://lattes.cnpq.br/${id}` : "";
+  }
+  if (!administrative && values.publicEmail !== undefined) {
+    const publicEmail = String(values.publicEmail ?? "").trim();
+    if (
+      publicEmail &&
+      (publicEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(publicEmail))
+    ) {
+      throw new Error("Informe um e-mail de contato válido.");
+    }
+    input.publicEmail = publicEmail;
+  }
   return input;
 }
 
@@ -96,7 +124,10 @@ export async function saveProfile(uid, values, { administrative = false } = {}) 
     if (previousRef && previousReservation?.data()?.uid === uid)
       transaction.delete(previousRef);
     transaction.update(ref, { ...input, ...settings, updatedAt: serverTimestamp() });
-    transaction.set(publicProfileRef(uid), publicProfileData(input));
+    transaction.set(
+      publicProfileRef(uid),
+      publicProfileData({ ...current.data(), ...input }),
+    );
   });
   return input;
 }

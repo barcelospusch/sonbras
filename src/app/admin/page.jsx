@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
+import { ArrowLeftIcon, ArrowRightIcon, GearSixIcon, MapPinIcon, ShieldCheckIcon, UserIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { documentId, getDocsFromServer, limit, orderBy, query, startAfter } from "firebase/firestore";
 import { usersRef } from "@/lib/firebase";
-import { AdminArea } from "@/components/admin-area";
+import { AdminArea, AdminHeading } from "@/components/admin-area";
 
 const pageSize = 25;
 
@@ -46,11 +47,7 @@ function UserDirectory() {
 
   return (
     <>
-      <div className="page-heading">
-        <span className="eyebrow">ADMINISTRAÇÃO</span>
-        <h1>Usuários</h1>
-        <p>Gerencie os perfis, os níveis de acesso e os sítios cadastrados.</p>
-      </div>
+      <AdminHeading icon={UsersThreeIcon} title="Usuários" description="Gerencie perfis, permissões e sítios de observação." />
       {error ? (
         <div className="error">
           <p role="alert">{error}</p>
@@ -70,26 +67,33 @@ function UserDirectory() {
               {entries.slice(0, pageSize).map((entry) => {
                 const profile = entry.data();
                 const href = `/admin/users/${encodeURIComponent(entry.id)}`;
+                const name = profile.displayName || profile.email || entry.id;
                 return (
-                  <li className="detail-panel" key={entry.id}>
-                    <div>
-                      <h2>{profile.displayName || profile.email || entry.id}</h2>
-                      <p>{profile.email}</p>
-                      {profile.isAdmin === true && <span className="status-badge">Administrador</span>}
+                  <li key={entry.id}>
+                    <span className="admin-row-icon"><UserIcon size={20} weight="duotone" aria-hidden="true" /></span>
+                    <div className="admin-user-identity">
+                      <h2><Link href={href}>{name}</Link></h2>
+                      {profile.email && profile.email !== name && <p>{profile.email}</p>}
                     </div>
-                    <div className="share-actions">
-                      <Link className="button secondary" href={href}>Configurações</Link>
-                      <Link className="button secondary" href={`${href}/sites`}>Sítios</Link>
+                    {profile.isAdmin === true && (
+                      <span className="pill admin-role"><ShieldCheckIcon size={15} weight="duotone" aria-hidden="true" /> Administrador</span>
+                    )}
+                    <div className="admin-actions">
+                      <Link className="button secondary" href={href} aria-label={`Configurações de ${name}`}><GearSixIcon size={17} aria-hidden="true" /> Configurações</Link>
+                      <Link className="button secondary" href={`${href}/sites`} aria-label={`Sítios de ${name}`}><MapPinIcon size={17} aria-hidden="true" /> Sítios</Link>
                     </div>
                   </li>
                 );
               })}
             </ul>
-          ) : <p>Nenhum usuário nesta página.</p>}
-          <div className="share-actions">
-            <button className="button secondary" disabled={cursors.length === 1} onClick={() => changePage(cursors.slice(0, -1))}>Anterior</button>
-            <button className="button secondary" disabled={entries.length <= pageSize} onClick={() => changePage([...cursors, entries[pageSize - 1].id])}>Próxima</button>
-          </div>
+          ) : <div className="admin-empty"><UsersThreeIcon size={30} aria-hidden="true" /><p>Nenhum usuário nesta página.</p></div>}
+          {(entries.length > pageSize || cursors.length > 1) && (
+            <nav className="admin-pagination" aria-label="Páginas de usuários">
+              <button type="button" className="button secondary" disabled={cursors.length === 1} onClick={() => changePage(cursors.slice(0, -1))}><ArrowLeftIcon size={16} aria-hidden="true" /> Anterior</button>
+              <span>Página {cursors.length}</span>
+              <button type="button" className="button secondary" disabled={entries.length <= pageSize} onClick={() => changePage([...cursors, entries[pageSize - 1].id])}>Próxima <ArrowRightIcon size={16} aria-hidden="true" /></button>
+            </nav>
+          )}
         </>
       )}
     </>

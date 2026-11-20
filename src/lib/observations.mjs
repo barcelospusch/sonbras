@@ -49,6 +49,7 @@ export function serializeObservation(id, data) {
     id,
     eventId: data.eventId,
     siteId: data.siteId,
+    ...(data.defaultSiteId && { defaultSiteId: data.defaultSiteId }),
     ...(data.siteSource === "default" && { siteSource: "default" }),
     tag: data.tag,
     eventName: data.eventName || "Ocultação estelar",

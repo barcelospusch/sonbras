@@ -10,7 +10,7 @@ export function AdminArea({ children }) {
       {loading || profileLoading ? (
         <p role="status">Verificando acesso…</p>
       ) : user && profile.isAdmin === true ? (
-        <div key={user.uid}>{children}</div>
+        <div className="admin-workspace" key={user.uid}>{children}</div>
       ) : (
         <div className="empty-state">
           <h1>Acesso restrito</h1>
@@ -21,5 +21,18 @@ export function AdminArea({ children }) {
         </div>
       )}
     </Shell>
+  );
+}
+
+export function AdminHeading({ icon: Icon, title, description, action }) {
+  return (
+    <header className="admin-heading">
+      <span className="admin-heading-icon"><Icon size={28} weight="duotone" aria-hidden="true" /></span>
+      <div>
+        <h1>{title}</h1>
+        {description && <p>{description}</p>}
+      </div>
+      {action && <div className="admin-heading-action">{action}</div>}
+    </header>
   );
 }
