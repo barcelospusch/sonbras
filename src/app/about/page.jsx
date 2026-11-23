@@ -98,9 +98,10 @@ export default function AboutPage() {
           observação.
         </p>
         <p className="about-text">
-          Seu e-mail e as coordenadas dos sítios são privados. Ao ativar o
-          perfil público, somente seu nome, instituição, tags, eventos e nomes
-          dos sítios marcados ficam visíveis no link compartilhado.
+          Seu e-mail de login e as coordenadas dos sítios ficam fora do perfil
+          público. Ao ativar a publicação, o link compartilhado pode mostrar
+          seu nome, instituição, e-mail de contato opcional e suas marcações.
+          Consulte a <Link className="text-link" href="/politica-de-privacidade">Política de Privacidade</Link>.
         </p>
       </section>
       <Link href="/" className="button">

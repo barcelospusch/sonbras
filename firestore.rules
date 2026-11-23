@@ -143,6 +143,8 @@ service cloud.firestore {
     }
     match /defaultSites/{siteId} {
       allow get, list: if true;
+      allow create, update: if admin() && siteValid(request.resource.data);
+      allow delete: if admin();
     }
 
     // Old prediction cache and every unlisted collection are inaccessible to clients.

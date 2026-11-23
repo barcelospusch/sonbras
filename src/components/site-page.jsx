@@ -55,7 +55,7 @@ function EventMapThumbnail({ id }) {
       ) : (
         <img
           src={`/api/events/${encodeURIComponent(id)}?map=thumbnail`}
-          alt="Mapa global da predição"
+          alt="Mapa da Terra com a trajetória prevista da sombra da ocultação"
           width={72}
           height={72}
           loading="lazy"

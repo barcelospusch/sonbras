@@ -259,7 +259,30 @@ test(
       assert.equal((await getDoc(ownerSite)).exists(), false);
       await assertFails(getDocs(collection(admin, "users", "owner", "observations")));
       await assertSucceeds(getDocs(collection(anonymous, "defaultSites")));
-      await assertFails(setDoc(doc(admin, "defaultSites", "public-site"), { name: "Changed" }));
+      const defaultData = {
+        name: "Local de referência",
+        latitude: -23.5,
+        longitude: -46.6,
+        radiusKm: 100,
+        minObservationAltitude: 10,
+        updatedAt: serverTimestamp(),
+      };
+      const managedDefaultSite = doc(admin, "defaultSites", "managed-site");
+      const otherDefaultSite = doc(other, "defaultSites", "managed-site");
+      const anonymousDefaultSite = doc(anonymous, "defaultSites", "managed-site");
+      await assertFails(setDoc(otherDefaultSite, defaultData));
+      await assertFails(setDoc(anonymousDefaultSite, defaultData));
+      await assertFails(setDoc(managedDefaultSite, { ...defaultData, latitude: 91 }));
+      await assertSucceeds(setDoc(managedDefaultSite, defaultData));
+      await assertSucceeds(getDoc(anonymousDefaultSite));
+      await assertFails(updateDoc(otherDefaultSite, { name: "Alterado", updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(managedDefaultSite, { radiusKm: 0, updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(managedDefaultSite, { radiusKm: 250, updatedAt: serverTimestamp() }));
+      assert.equal((await getDoc(anonymousDefaultSite)).data().radiusKm, 250);
+      await assertFails(deleteDoc(otherDefaultSite));
+      await assertFails(deleteDoc(anonymousDefaultSite));
+      await assertSucceeds(deleteDoc(managedDefaultSite));
+      assert.equal((await getDoc(anonymousDefaultSite)).exists(), false);
 
       // Exercise the real JavaScript repositories with a mocked Web SDK session.
       Object.assign(process.env, {
@@ -336,6 +359,12 @@ test(
         publicMarks.docs.map((mark) => mark.data().defaultSiteId).filter(Boolean),
         [defaultSite.id],
       );
+      await assertSucceeds(deleteDoc(doc(admin, "defaultSites", defaultSite.id)));
+      assert.equal((await getDoc(defaultMarkRef)).exists(), true);
+      const afterDefaultDeletion = await readPublicProfile("web-observer");
+      assert.ok(afterDefaultDeletion.observations.some(
+        (mark) => mark.eventId === event.id && mark.defaultSiteId === defaultSite.id,
+      ));
       await removeObservation("owner", { id: defaultObservationId });
       assert.equal((await getDoc(defaultMarkRef)).exists(), false);
       const observationId = `event-web~${site.id}`;

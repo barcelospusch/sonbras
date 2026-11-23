@@ -124,13 +124,13 @@ Sítios aceitam latitude de -90 a 90, longitude de -180 a 180, raio maior que ze
 
 ## Sítios padrão e administração
 
-Cadastre os locais de referência em `defaultSites` pelo console do Firestore ou por uma ferramenta administrativa autorizada. Use os mesmos nomes de campos e limites de coordenadas, raio e altitude dos sítios pessoais. A página inicial lista os documentos da coleção, que tem leitura pública.
+Administradores podem criar, editar e excluir locais de referência na seção **Sítios padrão** da página inicial. A coleção `defaultSites` tem leitura pública e usa os mesmos limites de coordenadas, raio e altitude dos sítios pessoais. Excluir um sítio padrão preserva as marcações dos observadores.
 
 Contas novas recebem `isAdmin: false` no perfil do Firestore. Para conceder acesso ao primeiro administrador, um operador autorizado do projeto Firebase deve alterar `users/{uid}.isAdmin` para o booleano `true` no console após a criação da conta. Perfis existentes sem o campo são tratados como contas comuns.
 
 Administradores veem **Administração** na navegação. Podem editar nome, nome de usuário, instituição, visibilidade, tema e papel administrativo, além de editar ou excluir os sítios cadastrados. A exclusão exige confirmação e preserva as marcações já salvas. O e-mail de autenticação continua sob controle do titular, com confirmação pelo Firebase Auth. A revogação do papel retira o acesso administrativo às próximas operações.
 
-Publique as regras no mesmo projeto indicado por `NEXT_PUBLIC_FIREBASE_PROJECT_ID` antes de usar a listagem administrativa, a exclusão de sítios pelo painel e as marcações de sítios padrão. Se a listagem informar permissão negada, confira a publicação e o campo `isAdmin` da conta.
+Publique as regras no mesmo projeto indicado por `NEXT_PUBLIC_FIREBASE_PROJECT_ID` antes de usar a listagem administrativa, a gestão de sítios e as marcações de sítios padrão. Em caso de permissão negada para uma ação administrativa, confira a publicação e o campo `isAdmin` da conta.
 
 ```powershell
 firebase deploy --only firestore:rules --project SEU_PROJECT_ID

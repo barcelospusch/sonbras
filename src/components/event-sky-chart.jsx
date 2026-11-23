@@ -138,7 +138,10 @@ export function EventSkyChart({ rightAscension, declination }) {
               <p className="sky-chart-status" role="status">Carregando carta do céu…</p>
             ) : null}
           </div>
-          <p className="field-hint">Aladin Lite · DSS2 / CDS</p>
+          <p className="field-hint">
+            Estrela da ocultação em ascensão reta {ra.toFixed(4)}° e declinação {dec.toFixed(4)}°.
+            {" "}Imagem do céu de Aladin Lite · DSS2 / CDS.
+          </p>
         </>
       )}
     </section>

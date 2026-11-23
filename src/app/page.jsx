@@ -1,270 +1,224 @@
 "use client";
+
 import { useApp } from "@/components/app-provider";
 import { SiteCard } from "@/components/site-card";
 import { Shell } from "@/components/shell";
 import { DeleteSite, SiteForm } from "@/components/site-form";
 import { SkyArt } from "@/components/sky-art";
-import { number } from "@/lib/format";
 import {
   ArrowRightIcon,
-  ArrowUpRightIcon,
-  BinocularsIcon,
-  BroadcastIcon,
-  FunnelSimpleIcon,
   GlobeHemisphereWestIcon,
   MagnifyingGlassIcon,
   MapPinIcon,
   PlusIcon,
-  StarFourIcon,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
+
+const compareNames = (a, b) => a.name.localeCompare(b.name, "pt-BR");
+const normalizeSearch = (value) =>
+  value.trim().toLocaleLowerCase("pt-BR").normalize("NFD").replace(/\p{M}/gu, "");
+
+function resultCount(results, total) {
+  return results === total ? total : `${results} de ${total}`;
+}
+
+function filterSites(sites, search) {
+  const term = normalizeSearch(search);
+  return sites.filter((site) => normalizeSearch(site.name).includes(term));
+}
+
+function SiteSearch({ label, value, onChange }) {
+  return (
+    <label className="home-site-search">
+      <span>{label}</span>
+      <span className="home-search-field">
+        <MagnifyingGlassIcon size={18} aria-hidden="true" />
+        <input type="search" placeholder="Nome do sítio" value={value} onChange={(event) => onChange(event.target.value)} />
+      </span>
+    </label>
+  );
+}
+
+function SiteSection({ id, title, detail, icon: Icon, count, action, children }) {
+  return (
+    <section className="home-sites-section" id={id} aria-labelledby={`${id}-heading`} tabIndex={-1}>
+      <header className="home-sites-heading">
+        <span className="home-sites-icon"><Icon size={24} weight="duotone" aria-hidden="true" /></span>
+        <div>
+          <h2 id={`${id}-heading`}>
+            {title}
+            {count != null && <span className="home-sites-count" aria-live="polite">{count}</span>}
+          </h2>
+          <p>{detail}</p>
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function SiteList({ sites, isDefault = false, onEdit, onDelete }) {
+  return (
+    <ul className="home-site-list">
+      {sites.map((site) => (
+        <li key={site.id}>
+          <SiteCard
+            site={site}
+            href={`${isDefault ? "/sites/default" : "/sites"}/${encodeURIComponent(site.id)}`}
+            onEdit={onEdit && (() => onEdit(site))}
+            onDelete={onDelete && (() => onDelete(site))}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SiteEmptyState({ title, detail, action }) {
+  return (
+    <div className="home-sites-empty">
+      <h3>{title}</h3>
+      {detail && <p>{detail}</p>}
+      {action}
+    </div>
+  );
+}
+
 export default function HomePage() {
-  const { sites, user, loading, error, configured, defaultSites, defaultSitesLoading, defaultSitesError } =
-    useApp();
-  const [search, setSearch] = useState(""),
-    [sort, setSort] = useState("recent");
-  const [form, setForm] = useState(null),
-    [deleting, setDeleting] = useState(null);
-  const filtered = sites
-    .filter((s) =>
-      s.name
-        .toLocaleLowerCase("pt-BR")
-        .includes(search.toLocaleLowerCase("pt-BR")),
-    )
-    .sort((a, b) =>
-      sort === "name" ? a.name.localeCompare(b.name, "pt-BR") : 0,
-    );
+  const { sites, user, profile, loading, error, defaultSites, defaultSitesLoading, defaultSitesError } = useApp();
+  const isAdmin = Boolean(user && profile.isAdmin === true);
+  const [search, setSearch] = useState("");
+  const [defaultSearch, setDefaultSearch] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [form, setForm] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+
+  const personalResults = filterSites(sites, search);
+  if (sort === "name") personalResults.sort(compareNames);
+  const defaultResults = filterSites(defaultSites, defaultSearch).sort(compareNames);
+
+  const personalSection = (
+    <SiteSection
+      id="sites"
+      title="Meus sítios"
+      detail="Seus locais de observação e as predições para cada região."
+      icon={MapPinIcon}
+      count={user && !loading && !error ? resultCount(personalResults.length, sites.length) : null}
+      action={user && (
+        <button type="button" className="button" onClick={() => setForm({})}>
+          <PlusIcon size={18} aria-hidden="true" /> Novo sítio
+        </button>
+      )}
+    >
+      {loading ? (
+        <p className="home-sites-empty" role="status">Carregando seus sítios…</p>
+      ) : error ? (
+        <p className="error" role="alert">{error}</p>
+      ) : !user ? (
+        <SiteEmptyState
+          title="Cadastre seus locais de observação"
+          detail="Entre na sua conta para salvar sítios e consultar predições para suas coordenadas."
+          action={<Link className="button secondary" href="/login">Entrar na minha conta</Link>}
+        />
+      ) : !sites.length ? (
+        <SiteEmptyState title="Você ainda não cadastrou sítios" detail="Use Novo sítio para informar as coordenadas do seu primeiro local de observação." />
+      ) : (
+        <>
+          <div className="home-site-tools">
+            <SiteSearch label="Buscar nos meus sítios" value={search} onChange={setSearch} />
+            <label className="home-site-sort">
+              Ordenar por
+              <select value={sort} onChange={(event) => setSort(event.target.value)}>
+                <option value="recent">Mais recentes</option>
+                <option value="name">Nome (A–Z)</option>
+              </select>
+            </label>
+          </div>
+          {personalResults.length ? (
+            <SiteList sites={personalResults} onEdit={(site) => setForm({ site })} onDelete={(site) => setDeleting({ site })} />
+          ) : (
+            <SiteEmptyState
+              title="Nenhum sítio encontrado"
+              action={<button type="button" className="button secondary" onClick={() => setSearch("")}>Limpar busca</button>}
+            />
+          )}
+        </>
+      )}
+    </SiteSection>
+  );
+
+  const defaultSection = (
+    <SiteSection
+      id="default-sites"
+      title="Sítios padrão"
+      detail="Locais de referência com predições disponíveis sem uma conta."
+      icon={GlobeHemisphereWestIcon}
+      count={!defaultSitesLoading && !defaultSitesError ? resultCount(defaultResults.length, defaultSites.length) : null}
+      action={isAdmin && (
+        <button type="button" className="button" onClick={() => setForm({ isDefault: true })}>
+          <PlusIcon size={18} aria-hidden="true" /> Novo sítio padrão
+        </button>
+      )}
+    >
+      {defaultSitesLoading ? (
+        <p className="home-sites-empty" role="status">Carregando sítios padrão…</p>
+      ) : defaultSitesError ? (
+        <p className="error" role="alert">{defaultSitesError}</p>
+      ) : !defaultSites.length ? (
+        <SiteEmptyState title="Nenhum sítio padrão disponível" />
+      ) : (
+        <>
+          <div className="home-site-tools">
+            <SiteSearch label="Buscar nos sítios padrão" value={defaultSearch} onChange={setDefaultSearch} />
+          </div>
+          {defaultResults.length ? (
+            <SiteList
+              sites={defaultResults}
+              isDefault
+              onEdit={isAdmin ? (site) => setForm({ site, isDefault: true }) : undefined}
+              onDelete={isAdmin ? (site) => setDeleting({ site, isDefault: true }) : undefined}
+            />
+          ) : (
+            <SiteEmptyState
+              title="Nenhum sítio padrão encontrado"
+              action={<button type="button" className="button secondary" onClick={() => setDefaultSearch("")}>Limpar busca</button>}
+            />
+          )}
+        </>
+      )}
+    </SiteSection>
+  );
+
   return (
     <Shell>
-      <div className="page-heading">
-        <div className="eyebrow">
-          <span className="online-dot" /> SEU CÉU, SUAS DESCOBERTAS
-        </div>
-        <h1>
-          Meus sítios<span className="accent">.</span>
-        </h1>
-        <p>Todo grande registro começa com um bom lugar para observar.</p>
-      </div>
-      <section className="hero">
-        <SkyArt />
-        <div className="hero-copy">
-          <span className="pill">
-            <StarFourIcon size={14} weight="duotone" /> OCULTAÇÕES ESTELARES
-          </span>
-          <h2>
-            O céu tem hora
-            <br />e lugar para surpreender.
-          </h2>
-          <p>
-            Seus pontos de observação, conectados às próximas
-            <br className="desktop-break" /> passagens de uma sombra. Prepare-se
-            para o instante.
-          </p>
-          <a href="#default-sites" className="hero-link">
-            Encontre sua próxima observação <ArrowRightIcon size={17} />
-          </a>
-        </div>
-        <span className="hero-coordinate">
-          α 19ʰ 42ᵐ · δ −25° 18′ <span>EXPLORAR É OLHAR MAIS LONGE</span>
-        </span>
-      </section>
-      <div className="stats-grid">
-        <div className="stat">
-          <span className="tile-icon">
-            <MapPinIcon weight="duotone" size={23} />
-          </span>
-          <div>
-            <span>Sítios de observação</span>
-            <strong>
-              {loading ? "—" : String(sites.length).padStart(2, "0")}
-              <small>cadastrados na sua conta</small>
-            </strong>
+      <div className="home-page">
+        <header className="hero home-hero">
+          <SkyArt />
+          <div className="hero-copy">
+            <h1>Sítios de observação</h1>
+            <p>Encontre predições de ocultações estelares para um local de referência ou para os sítios da sua conta.</p>
+            <nav className="home-hero-actions" aria-label="Listas de sítios">
+              <a className="button" href={user ? "#sites" : "#default-sites"}>
+                {user ? "Meus sítios" : "Sítios padrão"} <ArrowRightIcon size={18} aria-hidden="true" />
+              </a>
+              <a className="button secondary" href={user ? "#default-sites" : "#sites"}>
+                {user ? "Sítios padrão" : "Meus sítios"}
+              </a>
+            </nav>
           </div>
-        </div>
-        <div className="stat">
-          <span className="tile-icon green">
-            <BroadcastIcon weight="duotone" size={24} />
-          </span>
-          <div>
-            <span>Seu horizonte de busca</span>
-            <strong>
-              {sites.length
-                ? number(Math.max(...sites.map((s) => s.radiusKm)), 0)
-                : "—"}
-              <small>km de raio máximo</small>
-            </strong>
-          </div>
-        </div>
-        <div className="stat">
-          <span className="tile-icon amber">
-            <GlobeHemisphereWestIcon weight="duotone" size={24} />
-          </span>
-          <div>
-            <span>Uma rede de possibilidades</span>
-            <strong className="stat-text">
-              O céu conecta<small>Predições do LIneA Solar System</small>
-            </strong>
-          </div>
-        </div>
-      </div>
-      <section id="default-sites" className="sites-section">
-        <div className="section-heading">
-          <div>
-            <h2>Sítios padrão <span className="count">{defaultSites.length}</span></h2>
-            <p>Explore predições em locais de referência, disponíveis sem uma conta.</p>
-          </div>
-        </div>
-        {defaultSitesLoading ? (
-          <p role="status">Carregando sítios padrão…</p>
-        ) : defaultSitesError ? (
-          <p className="error" role="alert">{defaultSitesError}</p>
-        ) : defaultSites.length ? (
-          <div className="site-grid">
-            {[...defaultSites].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((site) => (
-              <SiteCard key={site.id} site={site} href={`/sites/default/${encodeURIComponent(site.id)}`} />
-            ))}
-          </div>
-        ) : (
-          <p>Nenhum sítio padrão disponível.</p>
-        )}
-      </section>
-      <section id="sites" className="sites-section">
-        <div className="section-heading">
-          <div>
-            <h2>
-              Seus pontos no mapa <span className="count">{sites.length}</span>
-            </h2>
-            <p>Escolha um sítio para explorar as predições da sua região.</p>
-          </div>
-          {user ? (
-            <button className="button" onClick={() => setForm("new")}>
-              <PlusIcon size={18} /> Novo sítio
-            </button>
-          ) : (
-            <Link className="button" href="/login">
-              <PlusIcon size={18} />{" "}
-              {configured ? "Cadastrar meu sítio" : "Começar a observar"}
-            </Link>
-          )}
-        </div>
-        <div className="toolbar">
-          <div className="search-input">
-            <MagnifyingGlassIcon size={19} />
-            <input
-              aria-label="Buscar sítios"
-              placeholder="Buscar um sítio de observação…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <label className="sort-control">
-            <FunnelSimpleIcon size={18} weight="duotone" />
-            <select
-              aria-label="Ordenar sítios"
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-            >
-              <option value="recent">Atualizados recentemente</option>
-              <option value="name">Nome: A–Z</option>
-            </select>
-          </label>
-        </div>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {loading ? (
-          <div className="empty-state">
-            <span className="loader" />
-            <h3>Localizando seus sítios…</h3>
-          </div>
-        ) : filtered.length ? (
-          <div className="site-grid">
-            {filtered.map((site) => (
-              <SiteCard
-                key={site.id}
-                site={site}
-                href={`/sites/${encodeURIComponent(site.id)}`}
-                onEdit={() => setForm(site)}
-                onDelete={() => setDeleting(site)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">
-            <div className="empty-orbit">
-              <MapPinIcon size={32} weight="duotone" />
-            </div>
-            <span className="eyebrow">
-              {search ? "NENHUM RESULTADO" : "SEU PRÓXIMO REGISTRO COMEÇA AQUI"}
-            </span>
-            <h3>
-              {search
-                ? "Nenhum sítio com esse nome"
-                : user
-                  ? "Dê um lugar às suas descobertas"
-                  : "Um lugar seu. Um universo de possibilidades."}
-            </h3>
-            <p>
-              {search
-                ? "Tente outro nome ou limpe a busca."
-                : user
-                  ? "Cadastre seu primeiro sítio e descubra quais sombras vão cruzar o seu horizonte."
-                  : "Entre na sua conta para reunir seus sítios e encontrar predições para o seu horizonte."}
-            </p>
-            {search ? (
-              <button
-                className="button secondary"
-                onClick={() => setSearch("")}
-              >
-                Limpar busca
-              </button>
-            ) : user ? (
-              <button
-                className="button secondary"
-                onClick={() => setForm("new")}
-              >
-                <PlusIcon size={17} />
-                Adicionar primeiro sítio
-              </button>
-            ) : (
-              <Link className="button secondary" href="/login">
-                Acessar minha conta <ArrowRightIcon size={17} />
-              </Link>
-            )}
-            {!configured && (
-              <span className="setup-note">
-                Ambiente inicial · configure o Firebase para conectar sua conta.
-              </span>
-            )}
-          </div>
-        )}
-      </section>
-      <div className="bottom-note">
-        <span className="tile-icon">
-          <BinocularsIcon size={24} weight="duotone" />
-        </span>
-        <div>
-          <h3>O próximo instante pode fazer história.</h3>
-          <p>
-            Uma ocultação dura poucos segundos. O conhecimento que ela produz
-            permanece.
-          </p>
-        </div>
-        <Link href="/guide">
-          Prepare sua observação <ArrowUpRightIcon />
+        </header>
+        {user ? <>{personalSection}{defaultSection}</> : <>{defaultSection}{personalSection}</>}
+        <Link className="home-guide-link" href="/guide">
+          Guia de observação <ArrowRightIcon size={17} aria-hidden="true" />
         </Link>
       </div>
       {form && (
-        <SiteForm
-          site={form === "new" ? undefined : form}
-          onClose={() => setForm(null)}
-        />
-      )}{" "}
+        <SiteForm site={form.site} isDefault={form.isDefault} onClose={() => setForm(null)} />
+      )}
       {deleting && (
-        <DeleteSite site={deleting} onClose={() => setDeleting(null)} />
+        <DeleteSite site={deleting.site} isDefault={deleting.isDefault} onClose={() => setDeleting(null)} />
       )}
     </Shell>
   );

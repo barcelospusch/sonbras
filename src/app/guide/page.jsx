@@ -57,6 +57,15 @@ export default function GuidePage() {
           </article>
         ))}
       </div>
+      <section className="detail-panel">
+        <h2>Navegação por teclado</h2>
+        <p>
+          Use <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> para ir ao conteúdo
+          e <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> para ir ao rodapé.
+          Os mesmos destinos aparecem nos primeiros links ao pressionar <kbd>Tab</kbd>.
+          Use <kbd>Esc</kbd> para fechar um diálogo.
+        </p>
+      </section>
       <Link className="button" href="/">
         Explorar meus sítios
       </Link>

@@ -4,28 +4,38 @@ import { number } from "@/lib/format";
 
 export function SiteCard({ site, href, onEdit, onDelete }) {
   return (
-    <article className="site-card compact-site-card">
-      <div className="compact-site-heading">
-        <span className="tile-icon"><MapPinIcon size={20} weight="duotone" /></span>
-        <h3>{href ? <Link href={href}>{site.name}</Link> : site.name}</h3>
+    <article className="home-site-card">
+      <div className="home-site-card-heading">
+        <MapPinIcon size={20} weight="duotone" aria-hidden="true" />
+        <h3>{site.name}</h3>
         {onEdit && (
-          <button type="button" className="icon-button" aria-label={`Editar ${site.name}`} onClick={onEdit}>
-            <PencilSimpleIcon size={17} />
+          <button type="button" className="icon-button" aria-label={`Editar ${site.name}`} title="Editar sítio" onClick={onEdit}>
+            <PencilSimpleIcon size={17} aria-hidden="true" />
           </button>
         )}
         {onDelete && (
-          <button type="button" className="icon-button" aria-label={`Excluir ${site.name}`} onClick={onDelete}>
-            <TrashIcon size={17} />
+          <button type="button" className="icon-button home-site-delete" aria-label={`Excluir ${site.name}`} title="Excluir sítio" onClick={onDelete}>
+            <TrashIcon size={17} aria-hidden="true" />
           </button>
         )}
       </div>
-      <p>{number(site.latitude, 4)}°, {number(site.longitude, 4)}°</p>
-      <p>{number(site.radiusKm, 0)} km de raio · Altitude ≥ {number(site.minObservationAltitude)}°</p>
-      {href && (
-        <Link href={href} className="card-link">
-          Explorar predições <ArrowRightIcon size={17} />
-        </Link>
-      )}
+      <dl className="home-site-details">
+        <div className="home-site-coordinates">
+          <dt>Latitude, longitude</dt>
+          <dd>{number(site.latitude, 4)}°, {number(site.longitude, 4)}°</dd>
+        </div>
+        <div>
+          <dt>Raio de busca</dt>
+          <dd>{number(site.radiusKm, 0)} km</dd>
+        </div>
+        <div>
+          <dt>Altitude mínima</dt>
+          <dd>{number(site.minObservationAltitude)}°</dd>
+        </div>
+      </dl>
+      <Link href={href} className="home-site-link" aria-label={`Ver predições para ${site.name}`}>
+        Ver predições <ArrowRightIcon size={18} aria-hidden="true" />
+      </Link>
     </article>
   );
 }
